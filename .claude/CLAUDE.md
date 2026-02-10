@@ -1,0 +1,164 @@
+# CLAUDE.md - Project Instructions
+
+## Project
+
+<!-- Brief description of the project. Replace this placeholder. -->
+
+A Claude-first Python project template. See @README.md for full documentation.
+
+## IMPORTANT: Verify What You Change
+
+**Code is not "done" until you've run it and seen it work.**
+
+Use your judgment. If you changed it, verify it:
+
+- Changed code? → `make ci` (runs lint, format, typecheck, tests)
+- Changed a workflow? → Push and check the workflow output
+- Added a pre-commit hook? → `pre-commit run --all-files`
+- Changed Docker? → `docker compose build`
+- Changed the CLI? → Run the CLI command you changed
+
+Don't just run tests. Tests can pass while the code is broken.
+
+## Commands
+
+```bash
+make install-dev  # Install with dev deps
+make ci           # Full CI: lint, format-check, typecheck, test with coverage
+make verify       # Full verification: imports, tests, smoke tests, CLI
+make lint         # Just linting
+make test         # Just tests
+make docker-build # Build Docker image
+```
+
+Run `make help` to see all available commands.
+
+---
+
+## Cost Optimization
+
+**Every API call costs money. Be efficient.**
+
+1. **Monitor context usage** - Keep under 40% (80K/200K tokens) when possible
+   - Check regularly with token counter
+   - Prepare NEXT_SESSION_PROMPT.md as context approaches 40%
+   - Summarize, compact & commit work to reset context (reference filepaths and line numbers)
+   - Use offset/limit when reading large files
+
+2. **Add learnings with references** - Document fixes with file:line references
+   - Example: `src/module/file.py:42`
+   - Update CLAUDE.md or relevant docs with specific locations
+
+3. **Prefer command line tools** to reduce context
+   - Use `jq` for JSON, `grep` for search, `git` for history
+   - Avoid reading entire files when possible
+   - Never launch interactive CLI tools (use `--no-interactive`, etc.)
+   - Prefer language server plugins over grep for go-to-definition, find-references
+
+4. **Fix style issues at the end** - Ignore line length and type errors until done, then use `make ci`
+
+## Python Type Annotations
+
+Use modern style (Python 3.10+):
+
+```python
+# ✅ CORRECT - use built-in types and | None
+def process(items: list[str], config: dict[str, int] | None = None) -> tuple[str, int]:
+    ...
+
+# ❌ WRONG - old style typing imports
+from typing import Dict, List, Optional
+def process(items: List[str], config: Optional[Dict[str, int]] = None) -> Tuple[str, int]:
+    ...
+```
+
+**Rules:**
+- Use `list`, `dict`, `tuple`, `set` directly (not from `typing`)
+- Use `X | None` instead of `Optional[X]`
+- Use `X | Y` instead of `Union[X, Y]`
+- For typing-only imports (e.g., `Sequence`, `Callable`), use namespace: `typing.Sequence` not `from typing import Sequence`
+
+## Think Holistically
+
+Before diving into code:
+- What is the **PURPOSE** of this tool?
+- Why is it failing on this issue?
+- Is this a symptom of a **larger architectural problem**?
+- Take a step back and analyze the **root cause**
+
+Don't just fix symptoms. Understand the underlying architecture first.
+
+## Development Best Practices
+
+- **Commit often** - Small, focused commits are easier to review and rollback
+- **Use Conventional Commits** - `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:` with optional scope: `fix(router): handle empty field`
+- **Stage only related changes** - Never use `git add -A` or `git add .` blindly. Use `git add -p` to selectively stage hunks. For agents: `printf 'y\nn\ny\n' | git add -p file.py`
+- **Use TDD** - Write tests first when possible
+- **Keep it simple** - Evaluate alternatives before complex solutions
+- **Measure twice, cut once** - Plan before implementing
+
+## Using Subagents
+
+Use subagents to reduce context usage and parallelize work:
+
+**Research Subagent (Sonnet)**
+- Search the repo, web research, gathering context
+- Report back with file paths, line numbers, and relevant excerpts
+
+**Implementation Subagent (Haiku)**
+- Execute small, well-defined chunks of work
+- Complete one task, report back for review before continuing
+
+**Pattern:**
+1. Research subagent gathers context and reports findings
+2. Main agent reviews and plans implementation steps
+3. Implementation subagent executes one step at a time
+4. Main agent reviews each step before proceeding
+
+## Writing Style
+
+When writing PR descriptions, comments, or documentation:
+- Use a measured, factual tone; describe actual changes rather than making broad claims
+- Avoid "comprehensive", "production-ready", "robust", "fully" unless objectively true
+- A sentence is preferred when a list will look cluttered
+
+## Command Line Shortcuts
+
+```bash
+# Quick file inspection with git
+git ls-files | wc -l              # Count files
+git ls-files | grep "*.sql"       # Find files by pattern
+git log --oneline -10             # Recent changes
+
+# JSON inspection with jq
+cat file.json | jq .key           # Parse field
+cat file.json | jq .              # Pretty print
+```
+
+---
+
+## Learnings
+
+*(Add items here as you discover them)*
+
+- Clear settings cache between tests: `get_settings.cache_clear()`
+- Use `tmp_path` fixture for temporary test files
+- Always run `make ci` before committing - catches lint/format/type issues
+- After pushing workflow changes, check Actions tab for actual results
+
+### uv gotchas
+
+- `[project.optional-dependencies]` are extras, NOT dev deps. `uv sync` alone skips them. Use `uv sync --extra dev` (Makefile:35). Only `[tool.uv] dev-dependencies` are installed by default with `uv sync`.
+- Never set `UV_SYSTEM_PYTHON=1` alongside `uv sync`. `uv sync` creates a `.venv`; the env var tells `uv run` to bypass it. The two are mutually exclusive. (.github/workflows/test.yml)
+
+### Pyright (type checker)
+
+- Project uses pyright (not mypy). Pyright is the engine behind VS Code's Pylance, so CLI and editor results stay in sync.
+- Pyright handles `try/except ImportError` fallback patterns natively -- no `type: ignore` comments needed.
+- Pyright resolves packages from the venv more reliably than mypy.
+- Config: pyproject.toml `[tool.pyright]` (3 lines vs mypy's 24)
+
+### Debugging CI failures
+
+- `gh run view --log-failed` can return empty output. Use the API instead: `gh api repos/{owner}/{repo}/actions/runs/{run_id}/jobs` to get job IDs, then `gh api repos/{owner}/{repo}/actions/jobs/{job_id}/logs` for the full log.
+- A 12-second CI failure where install passes but the next step fails instantly usually means the tool binary isn't on PATH.
