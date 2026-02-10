@@ -9,16 +9,16 @@ from __future__ import annotations
 import argparse
 import sys
 
-from my_project import __version__
-from my_project.config import get_settings
-from my_project.core import process_example
+from dwca_tools import __version__
+from dwca_tools.config import get_settings
+from dwca_tools.core import process_example
 
 
 def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the CLI."""
     parser = argparse.ArgumentParser(
-        prog="my-project",
-        description="A Claude-first Python application",
+        prog="dwca-tools",
+        description="Tools for working with Darwin Core Archive and iNaturalist open data",
     )
     parser.add_argument(
         "-v",

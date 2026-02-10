@@ -1,1 +1,1 @@
-"""Test suite for my_project."""
+"""Test suite for dwca_tools."""
