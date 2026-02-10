@@ -7,13 +7,15 @@ Handles reading, parsing, and filtering iNaturalist CSV data files.
 from __future__ import annotations
 
 import gzip
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
 from dwca_tools.inaturalist.downloader import download_observations, download_photos, download_taxa
 from dwca_tools.inaturalist.models import ExtractionMetadata, Observation, Photo, Taxon
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def read_taxa_file(file_path: Path, filters: dict[str, Any] | None = None) -> pd.DataFrame:

@@ -6,7 +6,6 @@ Handles downloading, caching, and versioning of iNaturalist data files.
 
 from __future__ import annotations
 
-import gzip
 import hashlib
 import json
 import shutil
@@ -52,7 +51,7 @@ def calculate_file_hash(file_path: Path) -> str:
         MD5 hash as hex string
     """
     hash_md5 = hashlib.md5()
-    with open(file_path, "rb") as f:
+    with file_path.open("rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
@@ -133,17 +132,19 @@ def download_file(
 
     # Check if we already have this exact file from a previous download
     for existing_file in cache_dir.glob(f"{data_type}-*.csv.gz"):
-        if existing_file.name.startswith(f"{data_type}-") and existing_file.name.endswith(
-            ".csv.gz"
+        if (
+            existing_file.name.startswith(f"{data_type}-")
+            and existing_file.name.endswith(".csv.gz")
+            and not existing_file.name.endswith(".tmp.gz")
+            and existing_file != versioned_path
+            and calculate_file_hash(existing_file) == file_hash
         ):
-            if not existing_file.name.endswith(".tmp.gz") and existing_file != versioned_path:
-                if calculate_file_hash(existing_file) == file_hash:
-                    # File is identical, just update symlink
-                    temp_path.unlink()
-                    if latest_symlink.exists() or latest_symlink.is_symlink():
-                        latest_symlink.unlink()
-                    latest_symlink.symlink_to(existing_file.name)
-                    return existing_file, False
+            # File is identical, just update symlink
+            temp_path.unlink()
+            if latest_symlink.exists() or latest_symlink.is_symlink():
+                latest_symlink.unlink()
+            latest_symlink.symlink_to(existing_file.name)
+            return existing_file, False
 
     # Move temp file to versioned location
     shutil.move(str(temp_path), str(versioned_path))
@@ -156,7 +157,7 @@ def download_file(
         file_hash=file_hash,
         file_size_bytes=versioned_path.stat().st_size,
     )
-    with open(metadata_path, "w") as f:
+    with metadata_path.open("w") as f:
         json.dump(metadata.model_dump(), f, indent=2)
 
     # Update 'latest' symlink

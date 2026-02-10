@@ -25,16 +25,16 @@ from dwca_tools.inaturalist.models import (
 )
 
 __all__ = [
+    "DownloadMetadata",
+    "ExtractionMetadata",
     "Observation",
     "Observer",
     "Photo",
     "Taxon",
-    "DownloadMetadata",
-    "ExtractionMetadata",
-    "download_taxa",
     "download_observations",
     "download_photos",
-    "extract_taxa",
+    "download_taxa",
     "extract_observations",
     "extract_photos",
+    "extract_taxa",
 ]

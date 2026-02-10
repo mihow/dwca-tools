@@ -128,10 +128,7 @@ def cmd_inaturalist_download(args: argparse.Namespace) -> int:
     )
 
     data_types = []
-    if args.data_type == "all":
-        data_types = ["taxa", "observations", "photos"]
-    else:
-        data_types = [args.data_type]
+    data_types = ["taxa", "observations", "photos"] if args.data_type == "all" else [args.data_type]
 
     for data_type in data_types:
         print(f"Downloading {data_type}...")
@@ -198,16 +195,19 @@ def cmd_inaturalist_extract(args: argparse.Namespace) -> int:
 
         # Output results
         if args.output:
+            from pathlib import Path
+
             output_data = {
                 "records": [r.model_dump() for r in records],
                 "metadata": metadata.model_dump(mode="json"),
             }
-            with open(args.output, "w") as f:
+            output_path = Path(args.output)
+            with output_path.open("w") as f:
                 json.dump(output_data, f, indent=2, default=str)
-            print(f"✓ Saved results to: {args.output}")
+            print("✓ Saved results to:", args.output)
         else:
             # Print summary
-            print(f"\nSummary:")
+            print("\nSummary:")
             print(f"  Source: {metadata.source}")
             print(f"  Total records: {metadata.total_records}")
             print(f"  Filters: {metadata.filters}")

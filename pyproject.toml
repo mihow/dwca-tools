@@ -139,6 +139,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG", "PLR2004"]
 "tests/test_smoke.py" = ["ARG", "PLR2004", "PLC0415"]  # Smoke tests import inside functions intentionally
+"src/dwca_tools/cli.py" = ["PLC0415", "PLR0912"]  # CLI imports inside functions for lazy loading
+"src/dwca_tools/inaturalist/extractor.py" = ["PLC0415"]  # Imports inside functions to avoid circular imports
 "__init__.py" = ["F401"]
 
 [tool.ruff.lint.isort]
