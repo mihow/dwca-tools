@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from my_project.config import Settings, get_settings
-from my_project.models import Example, Status
+from dwca_tools.config import Settings, get_settings
+from dwca_tools.models import Example, Status
 
 # =============================================================================
 # Environment Fixtures
