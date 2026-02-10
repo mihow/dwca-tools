@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
 from rich import print as rprint
@@ -29,7 +29,7 @@ def create_table(
     metadata: MetaData, table_name: str, columns: list[tuple[str | None, str]]
 ) -> Table:
     """Create a SQLAlchemy table with the given columns."""
-    cols = [Column("id", Integer, primary_key=True, autoincrement=True)]
+    cols: list[Column[Any]] = [Column("id", Integer, primary_key=True, autoincrement=True)]
     for idx, col_name in columns:
         if idx is not None:
             cols.append(Column(col_name, String))
@@ -43,7 +43,8 @@ def create_schema_from_meta(
 ) -> list[Table]:
     """Create database schema from meta.xml table definitions."""
     metadata = MetaData()
-    metadata.bind = engine
+    # Note: metadata.bind is deprecated, but we keep it for compatibility
+    metadata.bind = engine  # type: ignore[attr-defined]
     created_tables = []
     for table_name, _file, columns in tables:
         table = create_table(metadata, table_name, columns)

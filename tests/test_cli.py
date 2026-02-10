@@ -46,4 +46,3 @@ class TestCLI:
         result = runner.invoke(app, ["aggregate", "--help"])
         assert result.exit_code == 0
         assert "aggregate" in result.stdout.lower()
-

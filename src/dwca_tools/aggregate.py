@@ -23,7 +23,8 @@ console = Console()
 def create_taxa_table(engine: Engine, session: Session, batch_size: int) -> None:
     """Create and populate a taxa aggregation table."""
     metadata = MetaData()
-    metadata.bind = engine
+    # Note: metadata.bind is deprecated, but we keep it for compatibility
+    metadata.bind = engine  # type: ignore[attr-defined]
     taxa = Table(
         "taxa",
         metadata,
@@ -48,9 +49,7 @@ def create_taxa_table(engine: Engine, session: Session, batch_size: int) -> None
             func.count(occurrence.c.taxonID).label("occurrences_count"),
             func.count(multimedia.c.taxonID).label("multimedia_count"),
         )
-        .select_from(
-            occurrence.outerjoin(multimedia, occurrence.c.taxonID == multimedia.c.taxonID)
-        )
+        .select_from(occurrence.outerjoin(multimedia, occurrence.c.taxonID == multimedia.c.taxonID))
         .group_by(occurrence.c.taxonID, occurrence.c.scientificName, occurrence.c.family)
     )
 

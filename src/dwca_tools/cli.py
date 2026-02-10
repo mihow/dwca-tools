@@ -49,4 +49,3 @@ app.add_typer(aggregate_app, name="aggregate", help="Create aggregation tables")
 
 if __name__ == "__main__":
     app()
-

@@ -134,9 +134,7 @@ def display_random_samples(session: Session) -> None:
 
 
 @app.command()
-def convert(
-    dwca_path: str, db_url: str | None = None, batch_size: int = 1000
-) -> None:
+def convert(dwca_path: str, db_url: str | None = None, batch_size: int = 1000) -> None:
     """Convert a Darwin Core Archive to a SQL database."""
     if db_url is None:
         db_url = get_default_db_url(dwca_path)

@@ -124,7 +124,7 @@ def summarize_tables(
     core = root.find("dwc:core", namespace)
     if core is not None:
         filename_el = core.find("dwc:files/dwc:location", namespace)
-        filename = filename_el.text if filename_el is not None else "Unknown"
+        filename = filename_el.text if filename_el is not None and filename_el.text else "Unknown"
         table_name = extract_table_name_from_filename(filename)
 
         columns: list[tuple[str | None, str]] = []
@@ -138,7 +138,7 @@ def summarize_tables(
 
     for extension in root.findall("dwc:extension", namespace):
         filename_el = extension.find("dwc:files/dwc:location", namespace)
-        filename = filename_el.text if filename_el is not None else "Unknown"
+        filename = filename_el.text if filename_el is not None and filename_el.text else "Unknown"
         table_name = extract_table_name_from_filename(filename)
         columns = []
         for field in extension.findall("dwc:field", namespace):
