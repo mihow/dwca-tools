@@ -140,7 +140,7 @@ jobs:
 
       - name: Verify package
         run: |
-          uv run my-project --version
+          uv run dwca-tools --version
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -170,6 +170,6 @@ jobs:
           context: .
           target: production
           push: false
-          tags: my-project:latest
+          tags: dwca-tools:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

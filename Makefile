@@ -43,10 +43,10 @@ test: ## Run tests
 	uv run pytest
 
 test-cov: ## Run tests with coverage report (local)
-	uv run pytest --cov=my_project --cov-report=html --cov-report=term
+	uv run pytest --cov=dwca_tools --cov-report=html --cov-report=term
 
 test-ci: ## Run tests with coverage for CI (xml output)
-	uv run pytest -v --cov=my_project --cov-report=xml --cov-report=term
+	uv run pytest -v --cov=dwca_tools --cov-report=xml --cov-report=term
 
 test-fast: ## Run tests excluding slow tests
 	uv run pytest -m "not slow"
@@ -112,7 +112,7 @@ docker-dev: ## Start development shell in Docker
 	docker compose run --rm dev
 
 docker-build: ## Build production Docker image
-	docker build -t my-project --target production .
+	docker build -t dwca-tools --target production .
 
 docker-clean: ## Remove Docker containers and volumes
 	docker compose down -v --remove-orphans
@@ -121,8 +121,8 @@ docker-clean: ## Remove Docker containers and volumes
 # Development
 # =============================================================================
 
-run: ## Run the CLI info command
-	uv run my-project info
+run: ## Run the CLI version command
+	uv run dwca-tools --version
 
 setup: install-dev ## Full development setup
 	@echo "$(GREEN)Development environment ready!$(NC)"
@@ -132,19 +132,16 @@ setup: install-dev ## Full development setup
 # Verification (CRITICAL - run before declaring done)
 # =============================================================================
 
-verify: ## Run full verification suite (imports, tests, smoke, CLI)
+verify: ## Run full verification suite (imports, tests, CLI)
 	@echo "$(BLUE)=== Level 1: Import Check ===$(NC)"
-	uv run python -c "from my_project import *; print('$(GREEN)imports ok$(NC)')"
+	uv run python -c "from dwca_tools import *; print('$(GREEN)imports ok$(NC)')"
 	@echo ""
 	@echo "$(BLUE)=== Level 2: Unit Tests ===$(NC)"
 	uv run pytest -x -q
 	@echo ""
-	@echo "$(BLUE)=== Level 3: Smoke Tests ===$(NC)"
-	uv run pytest tests/test_smoke.py -v
-	@echo ""
-	@echo "$(BLUE)=== Level 4: CLI Execution ===$(NC)"
-	uv run python -m my_project.cli info
-	uv run python -m my_project.cli run --name verify-test
+	@echo "$(BLUE)=== Level 3: CLI Execution ===$(NC)"
+	uv run dwca-tools --version
+	uv run dwca-tools --help
 	@echo ""
 	@echo "$(GREEN)=== VERIFICATION PASSED ===$(NC)"
 
