@@ -1,4 +1,4 @@
-# Makefile for Claude-First Python Template
+# Makefile for dwca-tools
 #
 # Usage:
 #   make help       - Show available commands
@@ -20,7 +20,7 @@ YELLOW := \033[0;33m
 NC := \033[0m # No Color
 
 help: ## Show this help message
-	@echo "$(BLUE)Claude-First Python Template$(NC)"
+	@echo "$(BLUE)dwca-tools$(NC)"
 	@echo ""
 	@echo "$(GREEN)Available commands:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(NC) %s\n", $$1, $$2}'
@@ -43,10 +43,10 @@ test: ## Run tests
 	uv run pytest
 
 test-cov: ## Run tests with coverage report (local)
-	uv run pytest --cov=my_project --cov-report=html --cov-report=term
+	uv run pytest --cov=dwca_tools --cov-report=html --cov-report=term
 
 test-ci: ## Run tests with coverage for CI (xml output)
-	uv run pytest -v --cov=my_project --cov-report=xml --cov-report=term
+	uv run pytest -v --cov=dwca_tools --cov-report=xml --cov-report=term
 
 test-fast: ## Run tests excluding slow tests
 	uv run pytest -m "not slow"
@@ -112,7 +112,7 @@ docker-dev: ## Start development shell in Docker
 	docker compose run --rm dev
 
 docker-build: ## Build production Docker image
-	docker build -t my-project --target production .
+	docker build -t dwca-tools --target production .
 
 docker-clean: ## Remove Docker containers and volumes
 	docker compose down -v --remove-orphans
@@ -122,7 +122,7 @@ docker-clean: ## Remove Docker containers and volumes
 # =============================================================================
 
 run: ## Run the CLI info command
-	uv run my-project info
+	uv run dwca-tools info
 
 setup: install-dev ## Full development setup
 	@echo "$(GREEN)Development environment ready!$(NC)"
@@ -134,7 +134,7 @@ setup: install-dev ## Full development setup
 
 verify: ## Run full verification suite (imports, tests, smoke, CLI)
 	@echo "$(BLUE)=== Level 1: Import Check ===$(NC)"
-	uv run python -c "from my_project import *; print('$(GREEN)imports ok$(NC)')"
+	uv run python -c "from dwca_tools import *; print('$(GREEN)imports ok$(NC)')"
 	@echo ""
 	@echo "$(BLUE)=== Level 2: Unit Tests ===$(NC)"
 	uv run pytest -x -q
@@ -143,8 +143,8 @@ verify: ## Run full verification suite (imports, tests, smoke, CLI)
 	uv run pytest tests/test_smoke.py -v
 	@echo ""
 	@echo "$(BLUE)=== Level 4: CLI Execution ===$(NC)"
-	uv run python -m my_project.cli info
-	uv run python -m my_project.cli run --name verify-test
+	uv run python -m dwca_tools.cli info
+	uv run python -m dwca_tools.cli run --name verify-test
 	@echo ""
 	@echo "$(GREEN)=== VERIFICATION PASSED ===$(NC)"
 

@@ -2,8 +2,8 @@
 #
 # Multi-stage Dockerfile for Python applications using uv
 #
-# Build: docker build -t my-project .
-# Run:   docker run --rm my-project
+# Build: docker build -t dwca-tools .
+# Run:   docker run --rm dwca-tools
 #
 
 # =============================================================================
@@ -92,14 +92,14 @@ USER app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "from my_project import __version__; print(__version__)" || exit 1
+    CMD python -c "from dwca_tools import __version__; print(__version__)" || exit 1
 
 # Default command
-CMD ["my-project", "info"]
+CMD ["dwca-tools", "info"]
 
 # =============================================================================
 # Labels
 # =============================================================================
-LABEL org.opencontainers.image.title="my-project" \
-      org.opencontainers.image.description="A Claude-first Python application" \
-      org.opencontainers.image.source="https://github.com/yourusername/my-project"
+LABEL org.opencontainers.image.title="dwca-tools" \
+      org.opencontainers.image.description="Tools for working with Darwin Core Archive and iNaturalist open data" \
+      org.opencontainers.image.source="https://github.com/mihow/dwca-tools"
