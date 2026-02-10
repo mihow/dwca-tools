@@ -1,14 +1,14 @@
 [project]
-name = "my-project"  # TODO: Change to your project name
+name = "dwca-tools"
 version = "0.1.0"
-description = "A Claude-first Python project"  # TODO: Update description
+description = "Tools for working with Darwin Core Archive (DwC-A) files, including iNaturalist data"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
 authors = [
-    { name = "Your Name", email = "you@example.com" },  # TODO: Update author
+    { name = "Michael Bunsen", email = "notbot@gmail.com" },
 ]
-keywords = ["claude", "ai", "template"]  # TODO: Update keywords
+keywords = ["darwin-core", "dwca", "biodiversity", "inaturalist", "gbif"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -21,6 +21,12 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "pyyaml>=6.0",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+    "lxml>=5.0.0",
+    "sqlalchemy>=2.0.0",
+    "humanize>=4.0.0",
+    "psycopg2-binary>=2.9.0",
 ]
 
 [project.optional-dependencies]
@@ -35,19 +41,19 @@ dev = [
 ]
 
 [project.scripts]
-my-project = "my_project.cli:main"  # TODO: Update entry point
+dwca-tools = "dwca_tools.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/my-project"  # TODO: Update URL
-Repository = "https://github.com/yourusername/my-project.git"
-Issues = "https://github.com/yourusername/my-project/issues"
+Homepage = "https://github.com/mihow/dwca-tools"
+Repository = "https://github.com/mihow/dwca-tools.git"
+Issues = "https://github.com/mihow/dwca-tools/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/my_project"]
+packages = ["src/dwca_tools"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -85,7 +91,7 @@ asyncio_mode = "auto"
 # Coverage Configuration
 # ============================================================================
 [tool.coverage.run]
-source = ["src/my_project"]
+source = ["src/dwca_tools"]
 branch = true
 omit = [
     "*/tests/*",
@@ -140,7 +146,7 @@ ignore = [
 "__init__.py" = ["F401"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["my_project"]
+known-first-party = ["dwca_tools"]
 
 [tool.ruff.format]
 quote-style = "double"
