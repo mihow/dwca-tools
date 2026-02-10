@@ -181,6 +181,7 @@ def extract_observations(
     df = read_observations_file(file_path, filters)
 
     # Convert to Observation objects (sample first 1000 for now)
+    # Note: CSV uses 'observation_uuid' but model uses 'observation_id' for consistency
     observations = []
     for _, row in df.head(1000).iterrows():
         observation = Observation(
@@ -238,6 +239,7 @@ def extract_photos(
     df = read_photos_file(file_path, filters)
 
     # Convert to Photo objects (sample first 1000 for now)
+    # Note: CSV uses 'observation_uuid' but model uses 'observation_id' for consistency
     photos = []
     for _, row in df.head(1000).iterrows():
         photo = Photo(

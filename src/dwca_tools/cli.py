@@ -127,7 +127,6 @@ def cmd_inaturalist_download(args: argparse.Namespace) -> int:
         download_taxa,
     )
 
-    data_types = []
     data_types = ["taxa", "observations", "photos"] if args.data_type == "all" else [args.data_type]
 
     for data_type in data_types:
