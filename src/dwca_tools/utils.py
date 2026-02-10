@@ -19,5 +19,6 @@ def read_config() -> configparser.ConfigParser:
 
 def update_config(config: configparser.ConfigParser) -> None:
     """Write configuration to defaults.ini file."""
-    with open(CONFIG_FILE, "w") as configfile:
+    Path(CONFIG_FILE).write_text("")
+    with Path(CONFIG_FILE).open("w") as configfile:
         config.write(configfile)

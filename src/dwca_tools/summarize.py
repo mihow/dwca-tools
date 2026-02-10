@@ -96,12 +96,12 @@ def summarize_zip(zip_ref: ZipFile) -> None:
 
 def extract_name_from_term(term: str) -> str:
     """Extract the last component of a term URI."""
-    return term.split("/")[-1]
+    return term.rsplit("/", maxsplit=1)[-1]
 
 
 def extract_table_name_from_rowtype(rowtype: str) -> str:
     """Extract table name from rowtype URI."""
-    return rowtype.split("/")[-1].lower()
+    return rowtype.rsplit("/", maxsplit=1)[-1].lower()
 
 
 def extract_table_name_from_filename(filename: str) -> str:

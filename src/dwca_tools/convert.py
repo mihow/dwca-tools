@@ -172,7 +172,7 @@ def convert(
 @app.command()
 def sample(db_url: str) -> None:
     """Display random samples from an existing database."""
-    engine, session = create_engine_and_session(db_url)
+    _engine, session = create_engine_and_session(db_url)
     rprint("[cyan]Displaying Random Samples...[/cyan]")
     display_random_samples(session)
     rprint("[green]Random samples displayed successfully![/green]")
