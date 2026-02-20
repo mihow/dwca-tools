@@ -10,13 +10,13 @@ from rich.console import Console
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
 from sqlalchemy.orm import sessionmaker
 
-from .schemas import ColumnDefinition, TableDefinition
-
 _SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
     from sqlalchemy.orm import Session
+
+    from .schemas import ColumnDefinition, TableDefinition
 
 console = Console()
 
@@ -40,9 +40,7 @@ def create_engine_and_session(db_url: str) -> tuple[Engine, Session]:
     return engine, session
 
 
-def create_table(
-    metadata: MetaData, table_name: str, columns: list[ColumnDefinition]
-) -> Table:
+def create_table(metadata: MetaData, table_name: str, columns: list[ColumnDefinition]) -> Table:
     """Create a SQLAlchemy table with the given columns."""
     validate_sql_identifier(table_name)
     cols: list[Column[Any]] = [Column("id", Integer, primary_key=True, autoincrement=True)]

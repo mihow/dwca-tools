@@ -24,7 +24,6 @@ from .db import (
     summarize_sql_tables,
     validate_sql_identifier,
 )
-from .schemas import TableDefinition
 from .settings import get_convert_settings
 from .summarize import summarize_tables
 from .utils import human_readable_number
@@ -37,6 +36,8 @@ if TYPE_CHECKING:
     from rich.progress import TaskID
     from sqlalchemy.engine import Engine
     from sqlalchemy.orm import Session
+
+    from .schemas import TableDefinition
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -116,9 +117,7 @@ def estimate_and_display_row_counts(
     ):
         future_to_table: dict[Future[int], tuple[str, TaskID]] = {}
         for table_def in tables:
-            task = progress.add_task(
-                f"[cyan]Counting rows in {table_def.name}...", total=None
-            )
+            task = progress.add_task(f"[cyan]Counting rows in {table_def.name}...", total=None)
             future = executor.submit(
                 estimate_row_count, zip_ref, table_def.filename, progress, task
             )

@@ -95,9 +95,7 @@ def extract_table_name_from_filename(filename: str) -> str:
     return urlparse(filename).path.split("/")[-1].split(".")[0].lower()
 
 
-def summarize_tables(
-    zip_ref: ZipFile, meta_filename: str = "meta.xml"
-) -> list[TableDefinition]:
+def summarize_tables(zip_ref: ZipFile, meta_filename: str = "meta.xml") -> list[TableDefinition]:
     """Parse meta.xml and return table definitions."""
     console.print("[cyan]Parsing meta.xml to get table definitions.[/cyan]")
     with zip_ref.open(meta_filename) as meta_file:

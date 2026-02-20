@@ -10,12 +10,12 @@ import typer
 from rich.console import Console
 
 from . import __version__
-
-console = Console()
 from .aggregate import app as aggregate_app
 from .convert import app as convert_app
 from .download import app as download_app
 from .summarize import app as summarize_app
+
+console = Console()
 
 app = typer.Typer(
     no_args_is_help=True,
