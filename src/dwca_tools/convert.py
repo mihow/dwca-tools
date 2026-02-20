@@ -24,6 +24,7 @@ from .db import (
     get_table_column_names,
     summarize_sql_tables,
 )
+from .schemas import TableDefinition
 from .settings import get_convert_settings
 from .summarize import summarize_tables
 from .utils import human_readable_number
@@ -99,7 +100,7 @@ def estimate_row_count(zip_ref: ZipFile, filename: str, progress: Progress, task
 
 def estimate_and_display_row_counts(
     zip_ref: ZipFile,
-    tables: list[tuple[str, str, list[tuple[str | None, str]]]],
+    tables: list[TableDefinition],
     num_threads: int,
 ) -> dict[str, int]:
     """Count rows for each table in parallel and display results."""
@@ -114,10 +115,14 @@ def estimate_and_display_row_counts(
         ThreadPoolExecutor(max_workers=num_threads) as executor,
     ):
         future_to_table: dict[Future[int], tuple[str, TaskID]] = {}
-        for table_name, filename, _ in tables:
-            task = progress.add_task(f"[cyan]Counting rows in {table_name}...", total=None)
-            future = executor.submit(estimate_row_count, zip_ref, filename, progress, task)
-            future_to_table[future] = (table_name, task)
+        for table_def in tables:
+            task = progress.add_task(
+                f"[cyan]Counting rows in {table_def.name}...", total=None
+            )
+            future = executor.submit(
+                estimate_row_count, zip_ref, table_def.filename, progress, task
+            )
+            future_to_table[future] = (table_def.name, task)
 
         for future in as_completed(future_to_table):
             table_name, task = future_to_table[future]
@@ -258,7 +263,7 @@ def insert_data(
     engine: Engine,
     session: Session,
     zip_ref: ZipFile,
-    tables: list[tuple[str, str, list[tuple[str | None, str]]]],
+    tables: list[TableDefinition],
     table_row_counts: dict[str, int],
     chunk_size: int,
     num_threads: int,
@@ -272,17 +277,17 @@ def insert_data(
             conn.execute(text("SET session_replication_role = 'replica'"))
             conn.commit()
 
-    for table_name, filename, _meta_columns in tables:
-        row_count = table_row_counts[table_name]
+    for table_def in tables:
+        row_count = table_row_counts[table_def.name]
         rprint(
-            f"[cyan]Processing table: {table_name}"
+            f"[cyan]Processing table: {table_def.name}"
             f" with {human_readable_number(row_count)} rows[/cyan]"
         )
 
         # Intersect desired columns with actual schema columns (case-insensitive
         # because PostgreSQL folds unquoted identifiers to lowercase)
-        schema_columns_lower = {c.lower() for c in get_table_column_names(engine, table_name)}
-        columns_of_interest = settings.columns_of_interest.get(table_name)
+        schema_columns_lower = {c.lower() for c in get_table_column_names(engine, table_def.name)}
+        columns_of_interest = settings.columns_of_interest.get(table_def.name)
         if columns_of_interest is not None:
             columns_of_interest = [
                 c for c in columns_of_interest if c.lower() in schema_columns_lower
@@ -292,8 +297,8 @@ def insert_data(
             _pg_insert_table(
                 engine,
                 zip_ref,
-                table_name,
-                filename,
+                table_def.name,
+                table_def.filename,
                 columns_of_interest,
                 chunk_size,
                 num_threads,
@@ -304,19 +309,20 @@ def insert_data(
                 engine,
                 session,
                 zip_ref,
-                table_name,
-                filename,
+                table_def.name,
+                table_def.filename,
                 columns_of_interest,
                 chunk_size,
                 row_count,
             )
 
-        table_indexes = settings.indexes.get(table_name, [])
+        table_indexes = settings.indexes.get(table_def.name, [])
         if table_indexes:
-            create_indexes(engine, table_name, table_indexes)
+            create_indexes(engine, table_def.name, table_indexes)
 
         rprint(
-            f"[green]Inserted {human_readable_number(row_count)} rows into {table_name}.[/green]"
+            f"[green]Inserted {human_readable_number(row_count)} rows"
+            f" into {table_def.name}.[/green]"
         )
 
     if use_pg:

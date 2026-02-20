@@ -10,6 +10,8 @@ from rich.console import Console
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
 from sqlalchemy.orm import sessionmaker
 
+from .schemas import ColumnDefinition, TableDefinition
+
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
     from sqlalchemy.orm import Session
@@ -26,28 +28,26 @@ def create_engine_and_session(db_url: str) -> tuple[Engine, Session]:
 
 
 def create_table(
-    metadata: MetaData, table_name: str, columns: list[tuple[str | None, str]]
+    metadata: MetaData, table_name: str, columns: list[ColumnDefinition]
 ) -> Table:
     """Create a SQLAlchemy table with the given columns."""
     cols: list[Column[Any]] = [Column("id", Integer, primary_key=True, autoincrement=True)]
-    for idx, col_name in columns:
-        if idx is not None:
-            cols.append(Column(col_name, String))
+    for col in columns:
+        if col.index is not None:
+            cols.append(Column(col.name, String))
 
     table = Table(table_name, metadata, *cols, extend_existing=True)
     return table
 
 
-def create_schema_from_meta(
-    engine: Engine, tables: list[tuple[str, str, list[tuple[str | None, str]]]]
-) -> list[Table]:
+def create_schema_from_meta(engine: Engine, tables: list[TableDefinition]) -> list[Table]:
     """Create database schema from meta.xml table definitions."""
     metadata = MetaData()
     # Note: metadata.bind is deprecated, but we keep it for compatibility
     metadata.bind = engine  # type: ignore[attr-defined]
     created_tables = []
-    for table_name, _file, columns in tables:
-        table = create_table(metadata, table_name, columns)
+    for table_def in tables:
+        table = create_table(metadata, table_def.name, table_def.columns)
         created_tables.append(table)
 
     metadata.create_all(engine)

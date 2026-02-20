@@ -19,6 +19,7 @@ from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 
+from .schemas import ColumnDefinition, TableDefinition
 from .utils import human_readable_number, human_readable_size, read_config
 
 if TYPE_CHECKING:
@@ -106,7 +107,7 @@ def extract_table_name_from_filename(filename: str) -> str:
 
 def summarize_tables(
     zip_ref: ZipFile, meta_filename: str = "meta.xml"
-) -> list[tuple[str, str, list[tuple[str | None, str]]]]:
+) -> list[TableDefinition]:
     """Parse meta.xml and return table definitions."""
     rprint("[cyan]Parsing meta.xml to get table definitions.[/cyan]")
     with zip_ref.open(meta_filename) as meta_file:
@@ -115,21 +116,21 @@ def summarize_tables(
 
     namespace = {"dwc": "http://rs.tdwg.org/dwc/text/"}
 
-    tables: list[tuple[str, str, list[tuple[str | None, str]]]] = []
+    tables: list[TableDefinition] = []
     core = root.find("dwc:core", namespace)
     if core is not None:
         filename_el = core.find("dwc:files/dwc:location", namespace)
         filename = filename_el.text if filename_el is not None and filename_el.text else "Unknown"
         table_name = extract_table_name_from_filename(filename)
 
-        columns: list[tuple[str | None, str]] = []
+        columns: list[ColumnDefinition] = []
         for field in core.findall("dwc:field", namespace):
             index = field.get("index")
             term = field.get("term")
             if term:
                 column_name = extract_name_from_term(term)
-                columns.append((index, column_name))
-        tables.append((table_name, filename, columns))
+                columns.append(ColumnDefinition(index=index, name=column_name))
+        tables.append(TableDefinition(name=table_name, filename=filename, columns=columns))
 
     for extension in root.findall("dwc:extension", namespace):
         filename_el = extension.find("dwc:files/dwc:location", namespace)
@@ -141,8 +142,8 @@ def summarize_tables(
             term = field.get("term")
             if term:
                 column_name = extract_name_from_term(term)
-                columns.append((index, column_name))
-        tables.append((table_name, filename, columns))
+                columns.append(ColumnDefinition(index=index, name=column_name))
+        tables.append(TableDefinition(name=table_name, filename=filename, columns=columns))
 
     if not tables:
         rprint("[yellow]No tables found in meta.xml.[/yellow]")
@@ -153,9 +154,9 @@ def summarize_tables(
         table.add_column("Table", justify="left", style="cyan")
         table.add_column("File", justify="left", style="magenta")
         table.add_column("Columns", justify="left", style="green")
-        for table_name, filename, columns in tables:
-            column_info = ", ".join([name for _, name in columns])
-            table.add_row(table_name, filename, column_info)
+        for table_def in tables:
+            column_info = ", ".join(table_def.column_names)
+            table.add_row(table_def.name, table_def.filename, column_info)
         console.print(table)
 
     return tables
@@ -364,14 +365,14 @@ def taxa(
     with zipfile.ZipFile(dwca_path, "r") as zip_ref:
         tables = summarize_tables(zip_ref)
 
-        occ_table = next((t for t in tables if t[0] == "occurrence"), None)
-        mm_table = next((t for t in tables if t[0] == "multimedia"), None)
+        occ_table = next((t for t in tables if t.name == "occurrence"), None)
+        mm_table = next((t for t in tables if t.name == "multimedia"), None)
 
         if occ_table is None:
             rprint("[red]No occurrence table found in archive.[/red]")
             raise typer.Exit(code=1)
 
-        occ_columns = [name for _, name in occ_table[2]]
+        occ_columns = occ_table.column_names
         group_col = group_by.value
         if group_col not in occ_columns:
             rprint(f"[red]Column '{group_col}' not found in occurrence table.[/red]")
@@ -395,7 +396,7 @@ def taxa(
 
         groups = _aggregate_occurrences(
             zip_ref,
-            occ_table[1],
+            occ_table.filename,
             group_col,
             show_mismatched_names,
             species_only,
@@ -404,7 +405,7 @@ def taxa(
 
         image_counts: dict[str, int] = {}
         if image_counts_flag and mm_table is not None:
-            image_counts = _aggregate_images(zip_ref, mm_table[1])
+            image_counts = _aggregate_images(zip_ref, mm_table.filename)
 
     results = _build_taxa_results(groups, image_counts)
     total_groups = len(results)
