@@ -27,6 +27,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "humanize>=4.0.0",
     "psycopg2-binary>=2.9.0",
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]
@@ -141,9 +142,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG", "PLR2004"]
+"tests/*" = ["ARG", "PLR2004", "TC"]
 "tests/test_smoke.py" = ["ARG", "PLR2004", "PLC0415"]  # Smoke tests import inside functions intentionally
 "__init__.py" = ["F401"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["dwca_tools"]
