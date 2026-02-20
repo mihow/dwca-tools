@@ -25,6 +25,10 @@ Code is not "done" until you've run it and seen it work.
 | Configuration files | Use what consumes the config |
 | Dependencies | `make install-dev && make ci` |
 
+## Never Expose Secrets
+
+Never put plaintext passwords, tokens, or credentials in CLI commands, code, or commit messages. Use environment variables, `.env` files, `.pgpass`, or connection string placeholders instead. For example, use `postgresql://user@localhost/dbname` and let `PGPASSWORD` or `.pgpass` handle auth — never `postgresql://user:mypassword@localhost/dbname`.
+
 ## Red Flags
 
 Don't say "done" if you only:
