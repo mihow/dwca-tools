@@ -278,6 +278,7 @@ def _build_taxa_results(
 def _display_taxa_table(
     results: list[tuple[str, int, int, int, int]],
     show_mismatched_names: bool,
+    total_groups: int | None = None,
 ) -> None:
     """Render the taxa summary as a Rich table."""
     table = Table(title="Taxa Summary")
@@ -305,7 +306,12 @@ def _display_taxa_table(
     table.add_row(*total_row)
 
     console.print(table)
-    rprint(f"[cyan]Unique groups:[/cyan] {len(results)}")
+    total = total_groups if total_groups is not None else len(results)
+    shown = len(results)
+    if total != shown:
+        rprint(f"[cyan]Unique groups:[/cyan] {shown} shown, {total} total")
+    else:
+        rprint(f"[cyan]Unique groups:[/cyan] {total}")
 
 
 @app.command("taxa")
@@ -367,9 +373,10 @@ def taxa(
             image_counts = _aggregate_images(zip_ref, mm_table[1])
 
     results = _build_taxa_results(groups, image_counts)
+    total_groups = len(results)
     if limit is not None:
         results = results[:limit]
-    _display_taxa_table(results, show_mismatched_names)
+    _display_taxa_table(results, show_mismatched_names, total_groups)
 
 
 if __name__ == "__main__":
