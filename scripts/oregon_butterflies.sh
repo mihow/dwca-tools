@@ -16,6 +16,16 @@
 
 set -euo pipefail
 
+# Skip the GBIF request/download if the output file already exists.
+gbif_download() {
+  local output="$1"; shift
+  if [[ -f "$output" ]]; then
+    echo "  Skipping download — $output already exists"
+  else
+    uv run dwca-tools download request "$@" --output "$output"
+  fi
+}
+
 DATASET_KEY=$(awk 'NF && !/^#/ {print $1; exit}' reference/gbif_datasets.txt)
 OR_GADM="USA.38_1"  # Oregon — verify: https://www.gbif.org/occurrence/search?gadmGid=USA.38_1
 
@@ -47,10 +57,9 @@ echo "=== Downloading Oregon butterflies from iNaturalist ==="
 echo "  --dataset-key $DATASET_KEY --gadm-gid $OR_GADM"
 echo ""
 
-uv run dwca-tools download request "$TAXA_FILE" \
+gbif_download "$OUT_ARCHIVE" "$TAXA_FILE" \
   --dataset-key "$DATASET_KEY" \
   --gadm-gid "$OR_GADM" \
-  --output "$OUT_ARCHIVE" \
   --poll-interval "$POLL_INTERVAL"
 
 # ── 3. Summarize archive files ─────────────────────────────────────────────────

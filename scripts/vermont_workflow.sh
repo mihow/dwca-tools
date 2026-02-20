@@ -16,6 +16,16 @@
 
 set -euo pipefail
 
+# Skip the GBIF request/download if the output file already exists.
+gbif_download() {
+  local output="$1"; shift
+  if [[ -f "$output" ]]; then
+    echo "  Skipping download — $output already exists"
+  else
+    uv run dwca-tools download request "$@" --output "$output"
+  fi
+}
+
 DATASET_KEY=$(awk 'NF && !/^#/ {print $1; exit}' reference/gbif_datasets.txt)
 VT_GADM="USA.45_1"  # Vermont — verify: https://www.gbif.org/occurrence/search?gadmGid=USA.45_1
 TAXA_FILE="scripts/vermont_species.txt"
@@ -155,11 +165,10 @@ echo "Wrote $(wc -l < "$TAXA_FILE") species to $TAXA_FILE"
 echo ""
 echo "=== Download 1: Vermont only (GADM: $VT_GADM) ==="
 echo "  --match-names --dataset-key $DATASET_KEY --gadm-gid $VT_GADM"
-uv run dwca-tools download request "$TAXA_FILE" \
+gbif_download data/vermont_inat_vt.zip "$TAXA_FILE" \
   --match-names \
   --dataset-key "$DATASET_KEY" \
   --gadm-gid "$VT_GADM" \
-  --output data/vermont_inat_vt.zip \
   --poll-interval "$POLL_INTERVAL"
 
 # ── 3. Summarize small file before starting the large download ─────────────────
@@ -179,10 +188,9 @@ uv run dwca-tools summarize taxa data/vermont_inat_vt.zip \
 echo ""
 echo "=== Download 2: All locations (no geo filter) ==="
 echo "  --match-names --dataset-key $DATASET_KEY"
-uv run dwca-tools download request "$TAXA_FILE" \
+gbif_download data/vermont_inat_all.zip "$TAXA_FILE" \
   --match-names \
   --dataset-key "$DATASET_KEY" \
-  --output data/vermont_inat_all.zip \
   --poll-interval "$POLL_INTERVAL"
 
 # ── 5. Process both archives ───────────────────────────────────────────────────

@@ -211,7 +211,14 @@ def request(
         None, "--dataset-key", help="Filter: DATASET_KEY (UUID)"
     ),
     predicate_file: Path | None = typer.Option(
-        None, "--predicate", help="JSON predicate file (AND-merged)"
+        None,
+        "--predicate",
+        help=(
+            "Path to a JSON file containing an extra GBIF predicate, AND-merged with the "
+            "other filters. Useful for filters not covered by the shorthand flags, e.g. "
+            'CONTINENT: \'{"type":"equals","key":"CONTINENT","value":"NORTH_AMERICA"}\'. '
+            "See reference/gbif_predicates.md for common examples and available keys."
+        ),
     ),
     fmt: str = typer.Option("DWCA", "--format", help="DWCA, SIMPLE_CSV, or SPECIES_LIST"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Output file path"),
