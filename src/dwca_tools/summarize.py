@@ -276,6 +276,7 @@ def _display_taxa_table(
 ) -> None:
     """Render the taxa summary as a Rich table."""
     table = Table(title="Taxa Summary")
+    table.add_column("#", justify="right", style="dim")
     table.add_column("Name", style="cyan")
     table.add_column("Occurrences", justify="right", style="green")
     table.add_column("Images", justify="right", style="yellow")
@@ -285,15 +286,15 @@ def _display_taxa_table(
 
     total_occ = 0
     total_img = 0
-    for name, occ_count, img_count, n_taxon_ids, n_sci_names in results:
-        row_values = [name, str(occ_count), str(img_count)]
+    for i, (name, occ_count, img_count, n_taxon_ids, n_sci_names) in enumerate(results, 1):
+        row_values = [str(i), name, str(occ_count), str(img_count)]
         if show_mismatched_names:
             row_values.extend([str(n_taxon_ids), str(n_sci_names)])
         table.add_row(*row_values)
         total_occ += occ_count
         total_img += img_count
 
-    total_row = ["[bold]Total[/bold]", f"[bold]{total_occ}[/bold]", f"[bold]{total_img}[/bold]"]
+    total_row = ["", "[bold]Total[/bold]", f"[bold]{total_occ}[/bold]", f"[bold]{total_img}[/bold]"]
     if show_mismatched_names:
         total_row.extend(["", ""])
     table.add_row(*total_row)
