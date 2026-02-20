@@ -221,6 +221,7 @@ def _aggregate_occurrences(
     occ_filename: str,
     group_col: str,
     show_mismatched_names: bool,
+    species_only: bool = False,
 ) -> dict[str, _TaxaGroup]:
     """Stream occurrence CSV and build per-group aggregation."""
     needed_cols = ["gbifID", group_col]
@@ -228,9 +229,13 @@ def _aggregate_occurrences(
         for col in ("taxonID", "scientificName"):
             if col not in needed_cols:
                 needed_cols.append(col)
+    if species_only:
+        needed_cols.append("taxonRank")
 
     groups: dict[str, _TaxaGroup] = defaultdict(_TaxaGroup)
     for row in _read_table_as_dicts(zip_ref, occ_filename, needed_cols):
+        if species_only and row.get("taxonRank", "").upper() != "SPECIES":
+            continue
         key = row.get(group_col, "")
         entry = groups[key]
         entry.count += 1
@@ -323,6 +328,11 @@ def taxa(
         "-n",
         help="Limit the number of rows displayed.",
     ),
+    species_only: bool = typer.Option(
+        False,
+        "--species-only",
+        help="Filter to rows where taxonRank=SPECIES.",
+    ),
 ) -> None:
     """Summarize taxa from a Darwin Core Archive, showing occurrence and image counts."""
     with zipfile.ZipFile(dwca_path, "r") as zip_ref:
@@ -342,7 +352,15 @@ def taxa(
             rprint(f"[yellow]Available columns: {', '.join(occ_columns)}[/yellow]")
             raise typer.Exit(code=1)
 
-        groups = _aggregate_occurrences(zip_ref, occ_table[1], group_col, show_mismatched_names)
+        if species_only and "taxonRank" not in occ_columns:
+            rprint(
+                "[red]Column 'taxonRank' not found in occurrence table — cannot use --species-only.[/red]"
+            )
+            raise typer.Exit(code=1)
+
+        groups = _aggregate_occurrences(
+            zip_ref, occ_table[1], group_col, show_mismatched_names, species_only
+        )
 
         image_counts: dict[str, int] = {}
         if mm_table is not None:
