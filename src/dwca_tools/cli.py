@@ -11,6 +11,7 @@ import typer
 from . import __version__
 from .aggregate import app as aggregate_app
 from .convert import app as convert_app
+from .download import app as download_app
 from .summarize import app as summarize_app
 
 app = typer.Typer(
@@ -45,6 +46,7 @@ def main(
 app.add_typer(summarize_app, name="summarize", help="Inspect and summarize DwC-A files")
 app.add_typer(convert_app, name="convert", help="Convert DwC-A files to SQL databases")
 app.add_typer(aggregate_app, name="aggregate", help="Create aggregation tables")
+app.add_typer(download_app, name="download", help="Request and fetch GBIF occurrence downloads")
 
 
 if __name__ == "__main__":
