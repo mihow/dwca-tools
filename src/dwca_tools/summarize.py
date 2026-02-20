@@ -9,13 +9,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-import humanize
 import typer
 from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 
-from .utils import read_config
+from .utils import human_readable_number, human_readable_size, read_config
 
 if TYPE_CHECKING:
     from zipfile import ZipFile
@@ -27,16 +26,6 @@ console = Console()
 locale.setlocale(locale.LC_ALL, "")
 
 DEFAULT_AVERAGE_LINE_LENGTH = 300
-
-
-def human_readable_size(size: int) -> str:
-    """Convert byte size to human-readable format."""
-    return humanize.naturalsize(size, binary=True)
-
-
-def human_readable_number(number: int) -> str:
-    """Format number with thousands separators."""
-    return humanize.intcomma(number)
 
 
 def estimate_line_count(file_size: int, average_line_length: int) -> int:
