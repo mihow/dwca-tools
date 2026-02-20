@@ -15,7 +15,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .schemas import ColumnDefinition, TableDefinition
-from .utils import human_readable_number, human_readable_size, read_config
+from .utils import human_readable_number, human_readable_size
 
 if TYPE_CHECKING:
     from zipfile import ZipFile
@@ -159,7 +159,6 @@ def summarize_tables(
 @app.command("files")
 def files(dwca_path: str) -> None:
     """Summarize the files and table schemas in a Darwin Core Archive."""
-    _config = read_config()
     dwca_file = Path(dwca_path)
     dwca_size = dwca_file.stat().st_size
     rprint(
