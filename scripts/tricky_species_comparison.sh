@@ -49,10 +49,11 @@ while IFS= read -r name || [[ -n "$name" ]]; do
   key=$(echo "$result" | jq '.usageKey')
   matched=$(echo "$result" | jq -r '.canonicalName // "?"')
   mtype=$(echo "$result" | jq -r '.matchType')
+  tax_status=$(echo "$result" | jq -r '.status // "?"')
   if [ -z "$key" ] || [ "$key" = "null" ]; then
     echo "  WARNING: no backbone match for '$name'" >&2
   else
-    echo "  $name  →  $matched  (key: $key, $mtype)"
+    echo "  $name  →  $matched  [$tax_status, $mtype, key: $key]"
     echo "$key" >> "$TAXA_KEYS_FILE"
   fi
 done < "$TAXA_FILE"
