@@ -29,7 +29,7 @@ class TestTaxaCommand:
     """Tests for the 'taxa' command."""
 
     def test_taxa_default_group_by(self) -> None:
-        """Default grouping by scientificName shows species with counts."""
+        """Default grouping by scientificName shows species with counts but no Images column."""
         result = runner.invoke(app, ["summarize", "taxa", str(FIXTURE_PATH)])
         assert result.exit_code == 0
         assert "Danaus plexippus" in result.stdout
@@ -39,9 +39,11 @@ class TestTaxaCommand:
         assert "Papilio polyxenes" in result.stdout
         # Check totals row
         assert "Total" in result.stdout
+        # Images column should NOT be present without --image-counts
+        assert "Images" not in result.stdout
 
     def test_taxa_group_by_verbatim(self) -> None:
-        """Grouping by verbatimScientificName produces expected groups."""
+        """Grouping by verbatimScientificName produces expected groups without Images column."""
         result = runner.invoke(
             app,
             ["summarize", "taxa", str(FIXTURE_PATH), "--group-by", "verbatimScientificName"],
@@ -51,6 +53,7 @@ class TestTaxaCommand:
         assert "Swallowtail" in result.stdout
         assert "Painted Lady" in result.stdout
         assert "Cabbage White" in result.stdout
+        assert "Images" not in result.stdout
 
     def test_taxa_show_mismatched_names(self) -> None:
         """Mismatch columns appear and 'Swallowtail' maps to 2 taxonIDs."""
@@ -68,13 +71,11 @@ class TestTaxaCommand:
         assert result.exit_code == 0
         assert "taxonIDs" in result.stdout
         assert "accepted names" in result.stdout
+        assert "Images" not in result.stdout
         # "Swallowtail" has 4 occurrences, 2 taxonIDs, 2 accepted names
-        # Look for the row containing Swallowtail — it should have "2" for both mismatch columns.
-        # We can't easily parse Rich table output, but we can check key values appear.
         lines = result.stdout.split("\n")
         swallowtail_lines = [line for line in lines if "Swallowtail" in line]
         assert len(swallowtail_lines) == 1
-        # The line should contain "4" (occurrences) and two "2"s (taxonIDs, accepted names)
         swallowtail_line = swallowtail_lines[0]
         assert "4" in swallowtail_line
         assert swallowtail_line.count("2") >= 2
@@ -86,9 +87,7 @@ class TestTaxaCommand:
             ["summarize", "taxa", str(FIXTURE_PATH), "--limit", "2"],
         )
         assert result.exit_code == 0
-        # With 5 species in default grouping, limiting to 2 means only the top 2 appear
-        # Top 2 by occurrence count: Danaus plexippus (5), Vanessa cardui (5), Pieris rapae (5)
-        # — sorted by count desc then name asc, so Danaus plexippus and Pieris rapae
+        assert "Images" not in result.stdout
         lines = result.stdout.split("\n")
         species_count = sum(
             1
@@ -105,6 +104,27 @@ class TestTaxaCommand:
             )
         )
         assert species_count == 2
+
+    def test_taxa_image_counts_flag(self) -> None:
+        """--image-counts shows the Images column with correct values."""
+        result = runner.invoke(
+            app,
+            ["summarize", "taxa", str(FIXTURE_PATH), "--image-counts"],
+        )
+        assert result.exit_code == 0
+        assert "Images" in result.stdout
+        # Fixture has multimedia data, so at least some image counts should be non-zero
+        assert "Danaus plexippus" in result.stdout
+
+    def test_taxa_image_counts_warning(self) -> None:
+        """--image-counts prints a memory usage warning."""
+        result = runner.invoke(
+            app,
+            ["summarize", "taxa", str(FIXTURE_PATH), "--image-counts"],
+        )
+        assert result.exit_code == 0
+        assert "Image counting requires loading all occurrence IDs into memory" in result.stdout
+        assert "dwca-tools convert" in result.stdout
 
     def test_taxa_missing_column(self, tmp_path: Path) -> None:
         """Archive without the group-by column shows an error."""

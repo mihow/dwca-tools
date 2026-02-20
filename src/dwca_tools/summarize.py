@@ -222,9 +222,17 @@ def _aggregate_occurrences(
     group_col: str,
     show_mismatched_names: bool,
     species_only: bool = False,
+    collect_gbif_ids: bool = False,
 ) -> dict[str, _TaxaGroup]:
-    """Stream occurrence CSV and build per-group aggregation."""
-    needed_cols = ["gbifID", group_col]
+    """Stream occurrence CSV and build per-group aggregation.
+
+    When *collect_gbif_ids* is False (the default), gbifID values are not
+    stored, keeping memory usage proportional to the number of unique groups
+    rather than the number of occurrences.
+    """
+    needed_cols = [group_col]
+    if collect_gbif_ids:
+        needed_cols.append("gbifID")
     if show_mismatched_names:
         for col in ("taxonID", "scientificName"):
             if col not in needed_cols:
@@ -239,9 +247,10 @@ def _aggregate_occurrences(
         key = row.get(group_col, "")
         entry = groups[key]
         entry.count += 1
-        gbif_id = row.get("gbifID", "")
-        if gbif_id:
-            entry.gbif_ids.add(gbif_id)
+        if collect_gbif_ids:
+            gbif_id = row.get("gbifID", "")
+            if gbif_id:
+                entry.gbif_ids.add(gbif_id)
         if show_mismatched_names:
             tid = row.get("taxonID", "")
             if tid:
@@ -278,6 +287,7 @@ def _build_taxa_results(
 def _display_taxa_table(
     results: list[tuple[str, int, int, int, int]],
     show_mismatched_names: bool,
+    show_images: bool = False,
     total_groups: int | None = None,
 ) -> None:
     """Render the taxa summary as a Rich table."""
@@ -285,7 +295,8 @@ def _display_taxa_table(
     table.add_column("#", justify="right", style="dim")
     table.add_column("Name", style="cyan")
     table.add_column("Occurrences", justify="right", style="green")
-    table.add_column("Images", justify="right", style="yellow")
+    if show_images:
+        table.add_column("Images", justify="right", style="yellow")
     if show_mismatched_names:
         table.add_column("# taxonIDs", justify="right", style="magenta")
         table.add_column("# accepted names", justify="right", style="magenta")
@@ -293,14 +304,18 @@ def _display_taxa_table(
     total_occ = 0
     total_img = 0
     for i, (name, occ_count, img_count, n_taxon_ids, n_sci_names) in enumerate(results, 1):
-        row_values = [str(i), name, str(occ_count), str(img_count)]
+        row_values = [str(i), name, str(occ_count)]
+        if show_images:
+            row_values.append(str(img_count))
         if show_mismatched_names:
             row_values.extend([str(n_taxon_ids), str(n_sci_names)])
         table.add_row(*row_values)
         total_occ += occ_count
         total_img += img_count
 
-    total_row = ["", "[bold]Total[/bold]", f"[bold]{total_occ}[/bold]", f"[bold]{total_img}[/bold]"]
+    total_row: list[str] = ["", "[bold]Total[/bold]", f"[bold]{total_occ}[/bold]"]
+    if show_images:
+        total_row.append(f"[bold]{total_img}[/bold]")
     if show_mismatched_names:
         total_row.extend(["", ""])
     table.add_row(*total_row)
@@ -339,6 +354,11 @@ def taxa(
         "--species-only",
         help="Filter to rows where taxonRank=SPECIES.",
     ),
+    image_counts_flag: bool = typer.Option(
+        False,
+        "--image-counts",
+        help="Include image counts per group (requires holding all gbifIDs in memory).",
+    ),
 ) -> None:
     """Summarize taxa from a Darwin Core Archive, showing occurrence and image counts."""
     with zipfile.ZipFile(dwca_path, "r") as zip_ref:
@@ -364,19 +384,35 @@ def taxa(
             )
             raise typer.Exit(code=1)
 
+        if image_counts_flag and mm_table is not None:
+            rprint(
+                "\n[yellow]Note:[/yellow] Image counting requires loading all occurrence IDs"
+                " into memory. For large archives\n(>1M occurrences), consider importing to a"
+                " database instead:\n"
+                "\n    dwca-tools convert archive.zip --db-url sqlite:///data.db"
+                "\n    dwca-tools aggregate populate-taxa-table sqlite:///data.db\n"
+            )
+
         groups = _aggregate_occurrences(
-            zip_ref, occ_table[1], group_col, show_mismatched_names, species_only
+            zip_ref,
+            occ_table[1],
+            group_col,
+            show_mismatched_names,
+            species_only,
+            collect_gbif_ids=image_counts_flag,
         )
 
         image_counts: dict[str, int] = {}
-        if mm_table is not None:
+        if image_counts_flag and mm_table is not None:
             image_counts = _aggregate_images(zip_ref, mm_table[1])
 
     results = _build_taxa_results(groups, image_counts)
     total_groups = len(results)
     if limit is not None:
         results = results[:limit]
-    _display_taxa_table(results, show_mismatched_names, total_groups)
+    _display_taxa_table(
+        results, show_mismatched_names, show_images=image_counts_flag, total_groups=total_groups
+    )
 
 
 if __name__ == "__main__":
