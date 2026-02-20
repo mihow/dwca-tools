@@ -30,10 +30,11 @@ class TestCLI:
         assert "Darwin Core Archive" in result.stdout or "DwC-A" in result.stdout
 
     def test_summarize_help(self) -> None:
-        """Summarize command help displays."""
+        """Summarize sub-app help lists files and taxa subcommands."""
         result = runner.invoke(app, ["summarize", "--help"])
         assert result.exit_code == 0
-        assert "summarize" in result.stdout.lower()
+        assert "files" in result.stdout
+        assert "taxa" in result.stdout
 
     def test_convert_help(self) -> None:
         """Convert command help displays."""

@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import csv
+import dataclasses
+import enum
+import io
 import locale
 import xml.etree.ElementTree as ET
 import zipfile
+from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -17,9 +22,10 @@ from rich.table import Table
 from .utils import human_readable_number, human_readable_size, read_config
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from zipfile import ZipFile
 
-app = typer.Typer()
+app = typer.Typer(no_args_is_help=True)
 
 console = Console()
 
@@ -155,9 +161,9 @@ def summarize_tables(
     return tables
 
 
-@app.command()
-def summarize(dwca_path: str) -> None:
-    """Summarize a Darwin Core Archive file."""
+@app.command("files")
+def files(dwca_path: str) -> None:
+    """Summarize the files and table schemas in a Darwin Core Archive."""
     _config = read_config()
     dwca_file = Path(dwca_path)
     dwca_size = dwca_file.stat().st_size
@@ -171,6 +177,180 @@ def summarize(dwca_path: str) -> None:
         summarize_tables(zip_ref)
 
     rprint("[cyan]Processing completed.[/cyan]")
+
+
+# -- Taxa summarization --
+
+
+def _read_table_as_dicts(
+    zip_ref: ZipFile, filename: str, columns: list[str]
+) -> Generator[dict[str, str], None, None]:
+    """Yield rows as dicts from a tab-delimited file inside a zip.
+
+    Only includes keys listed in *columns* that exist in the file header.
+    """
+    with zip_ref.open(filename, "r") as raw:
+        text_file = io.TextIOWrapper(raw, encoding="utf-8")
+        reader = csv.reader(text_file, delimiter="\t")
+        header = next(reader)
+        # Map column name → index for the columns we care about
+        col_indices = {col: header.index(col) for col in columns if col in header}
+        for row in reader:
+            yield {col: row[idx] for col, idx in col_indices.items() if idx < len(row)}
+
+
+@dataclasses.dataclass
+class _TaxaGroup:
+    """Accumulator for per-group taxa stats."""
+
+    gbif_ids: set[str] = dataclasses.field(default_factory=set)
+    count: int = 0
+    taxon_ids: set[str] = dataclasses.field(default_factory=set)
+    sci_names: set[str] = dataclasses.field(default_factory=set)
+
+
+class GroupByColumn(enum.StrEnum):
+    """Columns available for taxa grouping."""
+
+    scientificName = "scientificName"
+    verbatimScientificName = "verbatimScientificName"
+
+
+def _aggregate_occurrences(
+    zip_ref: ZipFile,
+    occ_filename: str,
+    group_col: str,
+    show_mismatched_names: bool,
+) -> dict[str, _TaxaGroup]:
+    """Stream occurrence CSV and build per-group aggregation."""
+    needed_cols = ["gbifID", group_col]
+    if show_mismatched_names:
+        for col in ("taxonID", "scientificName"):
+            if col not in needed_cols:
+                needed_cols.append(col)
+
+    groups: dict[str, _TaxaGroup] = defaultdict(_TaxaGroup)
+    for row in _read_table_as_dicts(zip_ref, occ_filename, needed_cols):
+        key = row.get(group_col, "")
+        entry = groups[key]
+        entry.count += 1
+        gbif_id = row.get("gbifID", "")
+        if gbif_id:
+            entry.gbif_ids.add(gbif_id)
+        if show_mismatched_names:
+            tid = row.get("taxonID", "")
+            if tid:
+                entry.taxon_ids.add(tid)
+            sn = row.get("scientificName", "")
+            if sn:
+                entry.sci_names.add(sn)
+    return groups
+
+
+def _aggregate_images(zip_ref: ZipFile, mm_filename: str) -> dict[str, int]:
+    """Stream multimedia CSV and count images per gbifID."""
+    counts: dict[str, int] = defaultdict(int)
+    for row in _read_table_as_dicts(zip_ref, mm_filename, ["gbifID"]):
+        gbif_id = row.get("gbifID", "")
+        if gbif_id:
+            counts[gbif_id] += 1
+    return counts
+
+
+def _build_taxa_results(
+    groups: dict[str, _TaxaGroup],
+    image_counts: dict[str, int],
+) -> list[tuple[str, int, int, int, int]]:
+    """Calculate per-group totals and sort by occurrence count descending."""
+    results: list[tuple[str, int, int, int, int]] = []
+    for name, entry in groups.items():
+        img_count = sum(image_counts.get(gid, 0) for gid in entry.gbif_ids)
+        results.append((name, entry.count, img_count, len(entry.taxon_ids), len(entry.sci_names)))
+    results.sort(key=lambda r: (-r[1], r[0]))
+    return results
+
+
+def _display_taxa_table(
+    results: list[tuple[str, int, int, int, int]],
+    show_mismatched_names: bool,
+) -> None:
+    """Render the taxa summary as a Rich table."""
+    table = Table(title="Taxa Summary")
+    table.add_column("Name", style="cyan")
+    table.add_column("Occurrences", justify="right", style="green")
+    table.add_column("Images", justify="right", style="yellow")
+    if show_mismatched_names:
+        table.add_column("# taxonIDs", justify="right", style="magenta")
+        table.add_column("# accepted names", justify="right", style="magenta")
+
+    total_occ = 0
+    total_img = 0
+    for name, occ_count, img_count, n_taxon_ids, n_sci_names in results:
+        row_values = [name, str(occ_count), str(img_count)]
+        if show_mismatched_names:
+            row_values.extend([str(n_taxon_ids), str(n_sci_names)])
+        table.add_row(*row_values)
+        total_occ += occ_count
+        total_img += img_count
+
+    total_row = ["[bold]Total[/bold]", f"[bold]{total_occ}[/bold]", f"[bold]{total_img}[/bold]"]
+    if show_mismatched_names:
+        total_row.extend(["", ""])
+    table.add_row(*total_row)
+
+    console.print(table)
+    rprint(f"[cyan]Unique groups:[/cyan] {len(results)}")
+
+
+@app.command("taxa")
+def taxa(
+    dwca_path: str,
+    group_by: GroupByColumn = typer.Option(
+        GroupByColumn.scientificName,
+        "--group-by",
+        "-g",
+        help="Column to group taxa by.",
+    ),
+    show_mismatched_names: bool = typer.Option(
+        False,
+        "--show-mismatched-names",
+        help="Show columns for # distinct taxonIDs and # distinct scientificNames per group.",
+    ),
+    limit: int | None = typer.Option(
+        None,
+        "--limit",
+        "-n",
+        help="Limit the number of rows displayed.",
+    ),
+) -> None:
+    """Summarize taxa from a Darwin Core Archive, showing occurrence and image counts."""
+    with zipfile.ZipFile(dwca_path, "r") as zip_ref:
+        tables = summarize_tables(zip_ref)
+
+        occ_table = next((t for t in tables if t[0] == "occurrence"), None)
+        mm_table = next((t for t in tables if t[0] == "multimedia"), None)
+
+        if occ_table is None:
+            rprint("[red]No occurrence table found in archive.[/red]")
+            raise typer.Exit(code=1)
+
+        occ_columns = [name for _, name in occ_table[2]]
+        group_col = group_by.value
+        if group_col not in occ_columns:
+            rprint(f"[red]Column '{group_col}' not found in occurrence table.[/red]")
+            rprint(f"[yellow]Available columns: {', '.join(occ_columns)}[/yellow]")
+            raise typer.Exit(code=1)
+
+        groups = _aggregate_occurrences(zip_ref, occ_table[1], group_col, show_mismatched_names)
+
+        image_counts: dict[str, int] = {}
+        if mm_table is not None:
+            image_counts = _aggregate_images(zip_ref, mm_table[1])
+
+    results = _build_taxa_results(groups, image_counts)
+    if limit is not None:
+        results = results[:limit]
+    _display_taxa_table(results, show_mismatched_names)
 
 
 if __name__ == "__main__":
