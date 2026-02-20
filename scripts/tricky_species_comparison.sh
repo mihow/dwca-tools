@@ -52,6 +52,17 @@ while IFS= read -r name || [[ -n "$name" ]]; do
   tax_status=$(echo "$result" | jq -r '.status // "?"')
   if [ -z "$key" ] || [ "$key" = "null" ]; then
     echo "  WARNING: no backbone match for '$name'" >&2
+  elif [ "$tax_status" = "SYNONYM" ]; then
+    accepted_key=$(echo "$result" | jq -r '.acceptedUsageKey // empty')
+    if [ -n "$accepted_key" ]; then
+      accepted_result=$(curl -sf "https://api.gbif.org/v1/species/$accepted_key")
+      accepted_name=$(echo "$accepted_result" | jq -r '.canonicalName // "?"')
+      echo "  $name  →  $matched  [SYNONYM of $accepted_name, $mtype, key: $accepted_key]"
+      echo "$accepted_key" >> "$TAXA_KEYS_FILE"
+    else
+      echo "  $name  →  $matched  [$tax_status, $mtype, key: $key]"
+      echo "$key" >> "$TAXA_KEYS_FILE"
+    fi
   else
     echo "  $name  →  $matched  [$tax_status, $mtype, key: $key]"
     echo "$key" >> "$TAXA_KEYS_FILE"
