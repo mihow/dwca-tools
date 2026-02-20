@@ -19,7 +19,7 @@ from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 
-from .schemas import ColumnDefinition, TableDefinition
+from .schemas import ColumnDefinition, TableDefinition, TaxaResult
 from .utils import human_readable_number, human_readable_size, read_config
 
 if TYPE_CHECKING:
@@ -275,18 +275,26 @@ def _aggregate_images(zip_ref: ZipFile, mm_filename: str) -> dict[str, int]:
 def _build_taxa_results(
     groups: dict[str, _TaxaGroup],
     image_counts: dict[str, int],
-) -> list[tuple[str, int, int, int, int]]:
+) -> list[TaxaResult]:
     """Calculate per-group totals and sort by occurrence count descending."""
-    results: list[tuple[str, int, int, int, int]] = []
+    results: list[TaxaResult] = []
     for name, entry in groups.items():
         img_count = sum(image_counts.get(gid, 0) for gid in entry.gbif_ids)
-        results.append((name, entry.count, img_count, len(entry.taxon_ids), len(entry.sci_names)))
-    results.sort(key=lambda r: (-r[1], r[0]))
+        results.append(
+            TaxaResult(
+                name=name,
+                occurrence_count=entry.count,
+                image_count=img_count,
+                n_taxon_ids=len(entry.taxon_ids),
+                n_sci_names=len(entry.sci_names),
+            )
+        )
+    results.sort(key=lambda r: (-r.occurrence_count, r.name))
     return results
 
 
 def _display_taxa_table(
-    results: list[tuple[str, int, int, int, int]],
+    results: list[TaxaResult],
     show_mismatched_names: bool,
     show_images: bool = False,
     total_groups: int | None = None,
@@ -304,15 +312,15 @@ def _display_taxa_table(
 
     total_occ = 0
     total_img = 0
-    for i, (name, occ_count, img_count, n_taxon_ids, n_sci_names) in enumerate(results, 1):
-        row_values = [str(i), name, str(occ_count)]
+    for i, result in enumerate(results, 1):
+        row_values = [str(i), result.name, str(result.occurrence_count)]
         if show_images:
-            row_values.append(str(img_count))
+            row_values.append(str(result.image_count))
         if show_mismatched_names:
-            row_values.extend([str(n_taxon_ids), str(n_sci_names)])
+            row_values.extend([str(result.n_taxon_ids), str(result.n_sci_names)])
         table.add_row(*row_values)
-        total_occ += occ_count
-        total_img += img_count
+        total_occ += result.occurrence_count
+        total_img += result.image_count
 
     total_row: list[str] = ["", "[bold]Total[/bold]", f"[bold]{total_occ}[/bold]"]
     if show_images:
