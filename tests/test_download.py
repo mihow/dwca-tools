@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -222,7 +223,8 @@ class TestDownloadCLI:
     def test_request_help(self) -> None:
         result = runner.invoke(app, ["download", "request", "--help"])
         assert result.exit_code == 0
-        assert "--taxon-keys" in result.stdout
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+        assert "--taxon-keys" in plain
 
     def test_status_help(self) -> None:
         result = runner.invoke(app, ["download", "status", "--help"])

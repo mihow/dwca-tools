@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -24,8 +25,9 @@ class TestConvertCLI:
         """Convert help includes new options."""
         result = runner.invoke(app, ["convert", "convert", "--help"])
         assert result.exit_code == 0
-        assert "chunk-size" in result.stdout
-        assert "num-threads" in result.stdout
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+        assert "chunk-size" in plain
+        assert "num-threads" in plain
 
     @pytest.mark.integration
     def test_convert_sqlite(self, tmp_path: Path) -> None:
