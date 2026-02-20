@@ -1,0 +1,7 @@
+# GBIF dataset keys
+# format: key  name  url
+#
+# Usage in scripts:
+#   --dataset-key 50c9509d-22c7-4a22-a47d-8c48425ef4a7
+
+50c9509d-22c7-4a22-a47d-8c48425ef4a7	iNaturalist Research-grade Observations	https://www.gbif.org/dataset/50c9509d-22c7-4a22-a47d-8c48425ef4a7

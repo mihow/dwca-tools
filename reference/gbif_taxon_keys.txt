@@ -1,0 +1,15 @@
+# GBIF backbone taxon keys for commonly used higher ranks
+# format: key  rank  canonical_name  notes
+# source: https://api.gbif.org/v1/species/match?name=NAME&rank=RANK&kingdom=Animalia
+#
+# Verify a key: https://www.gbif.org/species/KEY
+# Usage in scripts (no --match-names flag): echo KEY > taxa.txt
+
+# Butterfly families (Papilionoidea + Hesperiidae)
+9417	FAMILY	Papilionidae	swallowtails
+5481	FAMILY	Pieridae	whites and yellows
+5473	FAMILY	Lycaenidae	blues, hairstreaks, coppers
+7017	FAMILY	Nymphalidae	brush-foots
+6953	FAMILY	Hesperiidae	skippers
+1933999	FAMILY	Riodinidae	metalmarks
+6951	FAMILY	Hedylidae	moth-butterflies (Neotropical; unlikely in N. America)
