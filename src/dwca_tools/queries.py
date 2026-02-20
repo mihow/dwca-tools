@@ -5,13 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
-from rich.console import Console
 from sqlalchemy import MetaData, Table, func, select
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-
-console = Console()
 
 
 def count_occurrences_per_taxon(session: Session) -> Any:

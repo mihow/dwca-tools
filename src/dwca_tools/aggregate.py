@@ -23,8 +23,6 @@ console = Console()
 def create_taxa_table(engine: Engine, session: Session, batch_size: int) -> None:
     """Create and populate a taxa aggregation table."""
     metadata = MetaData()
-    # Note: metadata.bind is deprecated, but we keep it for compatibility
-    metadata.bind = engine  # type: ignore[attr-defined]
     taxa = Table(
         "taxa",
         metadata,

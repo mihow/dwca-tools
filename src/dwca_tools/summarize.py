@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import locale
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
@@ -23,8 +22,6 @@ if TYPE_CHECKING:
 app = typer.Typer(no_args_is_help=True)
 
 console = Console()
-
-locale.setlocale(locale.LC_ALL, "")
 
 DEFAULT_AVERAGE_LINE_LENGTH = 300
 

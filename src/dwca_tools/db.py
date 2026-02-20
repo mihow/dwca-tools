@@ -43,8 +43,6 @@ def create_table(
 def create_schema_from_meta(engine: Engine, tables: list[TableDefinition]) -> list[Table]:
     """Create database schema from meta.xml table definitions."""
     metadata = MetaData()
-    # Note: metadata.bind is deprecated, but we keep it for compatibility
-    metadata.bind = engine  # type: ignore[attr-defined]
     created_tables = []
     for table_def in tables:
         table = create_table(metadata, table_def.name, table_def.columns)
