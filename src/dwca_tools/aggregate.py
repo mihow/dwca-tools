@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import typer
-from rich import print as rprint
 from rich.console import Console
 from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 from sqlalchemy import Column, Integer, MetaData, String, Table, func, select
@@ -85,23 +84,23 @@ def create_taxa_table(engine: Engine, session: Session, batch_size: int) -> None
             session.commit()
             progress.update(task, advance=len(rows))
         progress.remove_task(task)
-        rprint(f"[green]Inserted {len(unique_taxon_ids)} rows into taxa table.[/green]")
+        console.print(f"[green]Inserted {len(unique_taxon_ids)} rows into taxa table.[/green]")
 
 
 @app.command()
 def populate_taxa_table(db_url: str, batch_size: int = 1000) -> None:
     """Populate taxa aggregation table in an existing database."""
-    rprint(f"[cyan]Populating taxa table in database:[/cyan] {db_url}")
+    console.print(f"[cyan]Populating taxa table in database:[/cyan] {db_url}")
 
     engine, session = create_engine_and_session(db_url)
 
-    rprint("[cyan]Creating taxa table...[/cyan]")
+    console.print("[cyan]Creating taxa table...[/cyan]")
     create_taxa_table(engine, session, batch_size)
 
-    rprint("[cyan]Summarizing SQL tables...[/cyan]")
+    console.print("[cyan]Summarizing SQL tables...[/cyan]")
     summarize_sql_tables(engine, session)
 
-    rprint("[green]Taxa table populated successfully![/green]")
+    console.print("[green]Taxa table populated successfully![/green]")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import typer
-from rich import print as rprint
 from rich.console import Console
 from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 from rich.table import Table as RichTable
@@ -128,7 +127,7 @@ def estimate_and_display_row_counts(
             table_name, task = future_to_table[future]
             row_count = future.result()
             table_row_counts[table_name] = row_count
-            rprint(
+            console.print(
                 f"[green]Estimated rows for {table_name}:"
                 f" {human_readable_number(row_count)}[/green]"
             )
@@ -279,7 +278,7 @@ def insert_data(
 
     for table_def in tables:
         row_count = table_row_counts[table_def.name]
-        rprint(
+        console.print(
             f"[cyan]Processing table: {table_def.name}"
             f" with {human_readable_number(row_count)} rows[/cyan]"
         )
@@ -320,7 +319,7 @@ def insert_data(
         if table_indexes:
             create_indexes(engine, table_def.name, table_indexes)
 
-        rprint(
+        console.print(
             f"[green]Inserted {human_readable_number(row_count)} rows"
             f" into {table_def.name}.[/green]"
         )
@@ -400,26 +399,26 @@ def convert(
     if db_url is None:
         db_url = get_default_db_url(dwca_path)
 
-    rprint(f"[cyan]Starting conversion of DwC-A file to database:[/cyan] {db_url}")
+    console.print(f"[cyan]Starting conversion of DwC-A file to database:[/cyan] {db_url}")
 
     zip_ref = zipfile.ZipFile(dwca_path, "r")
     tables = summarize_tables(zip_ref, "meta.xml")
 
     engine, session = create_engine_and_session(db_url)
 
-    rprint("[cyan]Creating schema...[/cyan]")
+    console.print("[cyan]Creating schema...[/cyan]")
     create_schema_from_meta(engine, tables)
 
     table_row_counts = estimate_and_display_row_counts(zip_ref, tables, num_threads)
 
-    rprint("[cyan]Inserting data...[/cyan]")
+    console.print("[cyan]Inserting data...[/cyan]")
     insert_data(engine, session, zip_ref, tables, table_row_counts, chunk_size, num_threads)
 
-    rprint("[cyan]Summarizing SQL tables...[/cyan]")
+    console.print("[cyan]Summarizing SQL tables...[/cyan]")
     summarize_sql_tables(engine, session)
 
-    rprint("[green]Conversion completed successfully![/green]")
-    rprint(f"[cyan]Database URL:[/cyan] {db_url}")
+    console.print("[green]Conversion completed successfully![/green]")
+    console.print(f"[cyan]Database URL:[/cyan] {db_url}")
 
     session.close()
 
@@ -428,9 +427,9 @@ def convert(
 def sample(db_url: str) -> None:
     """Display random samples from an existing database."""
     _engine, session = create_engine_and_session(db_url)
-    rprint("[cyan]Displaying Random Samples...[/cyan]")
+    console.print("[cyan]Displaying Random Samples...[/cyan]")
     display_random_samples(session)
-    rprint("[green]Random samples displayed successfully![/green]")
+    console.print("[green]Random samples displayed successfully![/green]")
 
 
 def get_default_db_url(dwca_path: str) -> str:

@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
-from rich import print as rprint
 from rich.console import Console
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
 from sqlalchemy.orm import sessionmaker
@@ -62,15 +61,15 @@ def summarize_sql_tables(engine: Engine, session: Session) -> None:
     """Print summary of database tables."""
     inspector = sa.inspect(engine)
     for table_name in inspector.get_table_names():
-        rprint(f"[cyan]Summary for table {table_name}:[/cyan]")
+        console.print(f"[cyan]Summary for table {table_name}:[/cyan]")
 
         # Print row count
         table = Table(table_name, MetaData(), autoload_with=engine)
         stmt = sa.select(sa.func.count()).select_from(table)
         row_count = session.execute(stmt).scalar_one()
-        rprint(f"  - Rows: {row_count}")
+        console.print(f"  - Rows: {row_count}")
 
         # Print column names and types
         columns = inspector.get_columns(table_name)
         for column in columns:
-            rprint(f"  - {column['name']} ({column['type']})")
+            console.print(f"  - {column['name']} ({column['type']})")

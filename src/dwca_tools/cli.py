@@ -7,8 +7,11 @@ This module provides the main entry point for the CLI.
 from __future__ import annotations
 
 import typer
+from rich.console import Console
 
 from . import __version__
+
+console = Console()
 from .aggregate import app as aggregate_app
 from .convert import app as convert_app
 from .download import app as download_app
@@ -23,7 +26,7 @@ app = typer.Typer(
 def version_callback(value: bool) -> None:
     """Print version and exit."""
     if value:
-        typer.echo(f"dwca-tools version {__version__}")
+        console.print(f"dwca-tools version {__version__}")
         raise typer.Exit()
 
 

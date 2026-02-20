@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import typer
-from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 
@@ -74,11 +73,11 @@ def summarize_zip(zip_ref: ZipFile) -> None:
                 )
 
     console.print(table)
-    rprint(
+    console.print(
         "[cyan]Total files:[/cyan]"
         f" {human_readable_number(len(root_files) + sum(len(files) for files in dir_files.values()))}"
     )
-    rprint(f"[cyan]Total directories:[/cyan] {human_readable_number(len(dir_files))}")
+    console.print(f"[cyan]Total directories:[/cyan] {human_readable_number(len(dir_files))}")
 
 
 def extract_name_from_term(term: str) -> str:
@@ -100,7 +99,7 @@ def summarize_tables(
     zip_ref: ZipFile, meta_filename: str = "meta.xml"
 ) -> list[TableDefinition]:
     """Parse meta.xml and return table definitions."""
-    rprint("[cyan]Parsing meta.xml to get table definitions.[/cyan]")
+    console.print("[cyan]Parsing meta.xml to get table definitions.[/cyan]")
     with zip_ref.open(meta_filename) as meta_file:
         tree = ET.parse(meta_file)
     root = tree.getroot()
@@ -137,10 +136,10 @@ def summarize_tables(
         tables.append(TableDefinition(name=table_name, filename=filename, columns=columns))
 
     if not tables:
-        rprint("[yellow]No tables found in meta.xml.[/yellow]")
+        console.print("[yellow]No tables found in meta.xml.[/yellow]")
     else:
-        rprint("[cyan]Finished parsing meta.xml.[/cyan]")
-        rprint("[cyan]Summary of tables and columns discovered:[/cyan]")
+        console.print("[cyan]Finished parsing meta.xml.[/cyan]")
+        console.print("[cyan]Summary of tables and columns discovered:[/cyan]")
         table = Table(title="Tables and Columns")
         table.add_column("Table", justify="left", style="cyan")
         table.add_column("File", justify="left", style="magenta")
@@ -158,7 +157,7 @@ def files(dwca_path: str) -> None:
     """Summarize the files and table schemas in a Darwin Core Archive."""
     dwca_file = Path(dwca_path)
     dwca_size = dwca_file.stat().st_size
-    rprint(
+    console.print(
         "[cyan]Starting processing of DwC-A file:[/cyan]"
         f" {dwca_path} ({human_readable_size(dwca_size)})"
     )
@@ -167,7 +166,7 @@ def files(dwca_path: str) -> None:
         summarize_zip(zip_ref)
         summarize_tables(zip_ref)
 
-    rprint("[cyan]Processing completed.[/cyan]")
+    console.print("[cyan]Processing completed.[/cyan]")
 
 
 # Register the taxa command from the extracted module
