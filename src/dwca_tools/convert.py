@@ -73,9 +73,7 @@ def filter_columns(headers: list[str], columns_of_interest: list[str] | None) ->
 # -- Row estimation --
 
 
-def _count_newlines(
-    file_obj: object, task: TaskID, progress: Progress
-) -> int:
+def _count_newlines(file_obj: object, task: TaskID, progress: Progress) -> int:
     """Count newlines in a binary file object using buffered reads."""
 
     def _make_gen(reader: object) -> Generator[bytes, None, None]:
@@ -93,9 +91,7 @@ def _count_newlines(
     return total
 
 
-def estimate_row_count(
-    zip_ref: ZipFile, filename: str, progress: Progress, task: TaskID
-) -> int:
+def estimate_row_count(zip_ref: ZipFile, filename: str, progress: Progress, task: TaskID) -> int:
     """Estimate rows by counting newlines in the file."""
     with zip_ref.open(filename, "r") as f:
         return _count_newlines(f, task, progress)
@@ -108,32 +104,30 @@ def estimate_and_display_row_counts(
 ) -> dict[str, int]:
     """Count rows for each table in parallel and display results."""
     table_row_counts: dict[str, int] = {}
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("[progress.completed]{task.completed} rows"),
-        TimeElapsedColumn(),
-    ) as progress:
-        with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            future_to_table: dict[Future[int], tuple[str, TaskID]] = {}
-            for table_name, filename, _ in tables:
-                task = progress.add_task(
-                    f"[cyan]Counting rows in {table_name}...", total=None
-                )
-                future = executor.submit(
-                    estimate_row_count, zip_ref, filename, progress, task
-                )
-                future_to_table[future] = (table_name, task)
+    with (
+        Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.completed]{task.completed} rows"),
+            TimeElapsedColumn(),
+        ) as progress,
+        ThreadPoolExecutor(max_workers=num_threads) as executor,
+    ):
+        future_to_table: dict[Future[int], tuple[str, TaskID]] = {}
+        for table_name, filename, _ in tables:
+            task = progress.add_task(f"[cyan]Counting rows in {table_name}...", total=None)
+            future = executor.submit(estimate_row_count, zip_ref, filename, progress, task)
+            future_to_table[future] = (table_name, task)
 
-            for future in as_completed(future_to_table):
-                table_name, task = future_to_table[future]
-                row_count = future.result()
-                table_row_counts[table_name] = row_count
-                rprint(
-                    f"[green]Estimated rows for {table_name}:"
-                    f" {human_readable_number(row_count)}[/green]"
-                )
-                progress.remove_task(task)
+        for future in as_completed(future_to_table):
+            table_name, task = future_to_table[future]
+            row_count = future.result()
+            table_row_counts[table_name] = row_count
+            rprint(
+                f"[green]Estimated rows for {table_name}:"
+                f" {human_readable_number(row_count)}[/green]"
+            )
+            progress.remove_task(task)
     return table_row_counts
 
 
@@ -187,9 +181,7 @@ def _pg_insert_table(
         TextColumn("[progress.completed]{task.completed} rows"),
         TimeElapsedColumn(),
     ) as progress:
-        task = progress.add_task(
-            f"[cyan]Inserting data into {table_name}...", total=total_rows
-        )
+        task = progress.add_task(f"[cyan]Inserting data into {table_name}...", total=total_rows)
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             futures: dict[Future[None], int] = {}
             for headers, chunk in read_chunks(zip_ref, filename, chunk_size):
@@ -225,14 +217,12 @@ def _sqlite_insert_table(
         TextColumn("[progress.completed]{task.completed} rows"),
         TimeElapsedColumn(),
     ) as progress:
-        task = progress.add_task(
-            f"[cyan]Inserting data into {table_name}...", total=total_rows
-        )
+        task = progress.add_task(f"[cyan]Inserting data into {table_name}...", total=total_rows)
         for headers, chunk in read_chunks(zip_ref, filename, chunk_size):
             filtered_columns = filter_columns(headers, columns)
             col_indices = [headers.index(col) for col in filtered_columns]
             rows = [
-                {col: row[idx] for col, idx in zip(filtered_columns, col_indices)}
+                {col: row[idx] for col, idx in zip(filtered_columns, col_indices, strict=True)}
                 for row in chunk
             ]
             session.execute(table.insert(), rows)
@@ -251,10 +241,7 @@ def create_indexes(engine: Engine, table_name: str, indexes: list[str]) -> None:
             if col.lower() not in existing_columns_lower:
                 continue
             conn.execute(
-                text(
-                    f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{col}"
-                    f' ON {table_name} ("{col}")'
-                )
+                text(f'CREATE INDEX IF NOT EXISTS idx_{table_name}_{col} ON {table_name} ("{col}")')
             )
             conn.commit()
 
@@ -303,20 +290,34 @@ def insert_data(
 
         if use_pg:
             _pg_insert_table(
-                engine, zip_ref, table_name, filename,
-                columns_of_interest, chunk_size, num_threads, row_count,
+                engine,
+                zip_ref,
+                table_name,
+                filename,
+                columns_of_interest,
+                chunk_size,
+                num_threads,
+                row_count,
             )
         else:
             _sqlite_insert_table(
-                engine, session, zip_ref, table_name, filename,
-                columns_of_interest, chunk_size, row_count,
+                engine,
+                session,
+                zip_ref,
+                table_name,
+                filename,
+                columns_of_interest,
+                chunk_size,
+                row_count,
             )
 
         table_indexes = settings.indexes.get(table_name, [])
         if table_indexes:
             create_indexes(engine, table_name, table_indexes)
 
-        rprint(f"[green]Inserted {human_readable_number(row_count)} rows into {table_name}.[/green]")
+        rprint(
+            f"[green]Inserted {human_readable_number(row_count)} rows into {table_name}.[/green]"
+        )
 
     if use_pg:
         with engine.connect() as conn:
