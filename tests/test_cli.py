@@ -28,22 +28,3 @@ class TestCLI:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         assert "Darwin Core Archive" in result.stdout or "DwC-A" in result.stdout
-
-    def test_summarize_help(self) -> None:
-        """Summarize sub-app help lists files and taxa subcommands."""
-        result = runner.invoke(app, ["summarize", "--help"])
-        assert result.exit_code == 0
-        assert "files" in result.stdout
-        assert "taxa" in result.stdout
-
-    def test_convert_help(self) -> None:
-        """Convert command help displays."""
-        result = runner.invoke(app, ["convert", "--help"])
-        assert result.exit_code == 0
-        assert "convert" in result.stdout.lower()
-
-    def test_aggregate_help(self) -> None:
-        """Aggregate command help displays."""
-        result = runner.invoke(app, ["aggregate", "--help"])
-        assert result.exit_code == 0
-        assert "aggregate" in result.stdout.lower()

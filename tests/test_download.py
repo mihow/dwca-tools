@@ -181,9 +181,12 @@ class TestBuildRequestBody:
 class TestGbifSettings:
     """Tests for GbifSettings via pydantic-settings."""
 
-    def test_defaults_are_empty(self) -> None:
+    def test_defaults_are_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
         get_gbif_settings.cache_clear()
-        settings = GbifSettings(username="", password="", email="")
+        monkeypatch.delenv("GBIF_USERNAME", raising=False)
+        monkeypatch.delenv("GBIF_PASSWORD", raising=False)
+        monkeypatch.delenv("GBIF_EMAIL", raising=False)
+        settings = GbifSettings(_env_file=None)  # type: ignore[call-arg]
         assert settings.username == ""
         assert settings.password == ""
         assert settings.email == ""
