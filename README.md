@@ -1,169 +1,100 @@
 # dwca-tools
 
-Tools for working with Darwin Core Archive (DwC-A) files, including support for iNaturalist data format.
+A Python CLI for working with [Darwin Core Archive](https://dwc.tdwg.org/) (DwC-A) files — the standard zip format used by biodiversity databases like [GBIF](https://www.gbif.org/) and [iNaturalist](https://www.inaturalist.org/).
 
-## Features
-
-- **DwC-A Inspection**: Quickly inspect Darwin Core Archive files without full extraction
-- **SQL Conversion**: Convert DwC-A files to SQL databases (SQLite, PostgreSQL, etc.)
-- **Aggregation Tools**: Create summary tables and perform common aggregations
-- **iNaturalist Support** (Planned): Work efficiently with large iNaturalist open data files
-- **Modern Python**: Python 3.12+ with type hints, Pydantic, pytest
-- **Rich CLI**: Beautiful command-line interface with progress bars and tables
-
-## Quick Start
-
-### Installation
+## Installation
 
 ```bash
-# Install from source
 git clone https://github.com/mihow/dwca-tools.git
 cd dwca-tools
-pip install -e .
+uv sync
+source .venv/bin/activate
 ```
 
-### Usage
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+
+## Commands
+
+### `summarize` — Inspect archives
+
+Inspect Darwin Core Archive files without extracting them.
 
 ```bash
-# Inspect a Darwin Core Archive
-dwca-tools summarize archive.zip
+# Show archive structure: files, tables, columns, row counts
+dwca-tools summarize files archive.zip
 
-# Convert to SQL database
-dwca-tools convert archive.zip --db-url sqlite:///data.db
+# Summarize taxa with occurrence and image counts
+dwca-tools summarize taxa archive.zip
 
-# Convert to PostgreSQL
-dwca-tools convert archive.zip --db-url postgresql://user:pass@localhost/dbname
+# Group by verbatim name and show backbone resolution mismatches
+dwca-tools summarize taxa archive.zip --group-by verbatimScientificName --show-mismatched-names
 
-# Display random samples from database
-dwca-tools convert sample --db-url sqlite:///data.db
-
-# Create aggregated taxa table
-dwca-tools aggregate populate-taxa-table --db-url sqlite:///data.db
+# Filter to species-rank only, limit output
+dwca-tools summarize taxa archive.zip --species-only --limit 20
 ```
 
-### Docker Setup
+### `convert` — Load into a database
+
+Convert DwC-A files to SQL databases (SQLite, PostgreSQL, etc.) for querying.
 
 ```bash
-# Run tests in container
-docker compose run --rm test
-
-# Development shell
-docker compose run --rm dev
-```
-
-## Project Structure
-
-```
-.
-├── docs/                       # Documentation
-│   ├── INATURALIST_SUPPORT.md  # iNaturalist support plan
-│   └── TEST_ARCHIVES_PLAN.md   # Test archive infrastructure plan
-├── src/dwca_tools/             # Main package
-│   ├── __init__.py
-│   ├── cli.py                  # Command-line interface
-│   ├── utils.py                # Utility functions
-│   ├── db.py                   # Database operations
-│   ├── summarize.py            # Archive inspection
-│   ├── convert.py              # Archive conversion
-│   ├── aggregate.py            # Aggregation operations
-│   └── queries.py              # Common SQL queries
-├── tests/                      # Test suite
-│   ├── conftest.py             # Shared fixtures
-│   └── test_cli.py             # CLI tests
-├── .github/workflows/          # CI/CD pipelines
-├── Dockerfile                  # Multi-stage Docker build
-├── docker-compose.yml          # Development services
-├── pyproject.toml              # Project configuration
-└── README.md                   # This file
-```
-
-## Features
-
-### DwC-A Archive Inspection
-
-Quickly inspect Darwin Core Archive files to understand their structure:
-
-```bash
-dwca-tools summarize mydata.zip
-```
-
-This will show:
-- Archive contents and file sizes
-- Table definitions from meta.xml
-- Column names for each table
-- Row count estimates
-
-### SQL Conversion
-
-Convert DwC-A files to SQL databases for easier querying:
-
-```bash
-# SQLite (default)
-dwca-tools convert mydata.zip
+# SQLite
+dwca-tools convert convert archive.zip --db-url sqlite:///data.db
 
 # PostgreSQL
-dwca-tools convert mydata.zip --db-url postgresql://localhost/mydb
+dwca-tools convert convert archive.zip --db-url postgresql://user@localhost/dbname
 
 # Custom batch size
-dwca-tools convert mydata.zip --batch-size 5000
+dwca-tools convert convert archive.zip --db-url sqlite:///data.db --batch-size 5000
+
+# Display random samples from an existing database
+dwca-tools convert sample --db-url sqlite:///data.db
 ```
 
-### Aggregation Tables
+### `aggregate` — Build summary tables
 
-Create summary tables from occurrence data:
+Create a `taxa` summary table by joining occurrence and multimedia data (requires a prior `convert` run).
 
 ```bash
 dwca-tools aggregate populate-taxa-table --db-url sqlite:///data.db
 ```
 
-## iNaturalist Support (Planned)
+### `download` — GBIF occurrence downloads
 
-Support for the iNaturalist open data format is planned. See [docs/INATURALIST_SUPPORT.md](docs/INATURALIST_SUPPORT.md) for details on:
-- Efficient inspection of large archive files
-- Loading subsets by taxon (e.g., Lepidoptera)
-- Random sampling strategies
-- Schema mapping to SQL databases
+Request, monitor, and fetch occurrence downloads from the [GBIF API](https://www.gbif.org/developer/occurrence#download). Requires a GBIF account (`GBIF_USERNAME`, `GBIF_PASSWORD`, `GBIF_EMAIL` env vars or `.env` file).
 
-## Test Archives
+```bash
+# Download by taxon keys (submits request, polls until ready, downloads the archive)
+dwca-tools download request taxon_keys.txt --has-images -o output.zip
 
-Small test archives will be added to enable CI testing. See [docs/TEST_ARCHIVES_PLAN.md](docs/TEST_ARCHIVES_PLAN.md) for the infrastructure plan.
+# Use verbatim scientific names instead of backbone keys
+dwca-tools download request names.txt --match-names --has-images
+
+# Filter by country, dataset, or arbitrary predicate
+dwca-tools download request keys.txt --country US --dataset-key <uuid>
+dwca-tools download request keys.txt --predicate filters.json
+
+# Submit without waiting
+dwca-tools download request keys.txt --no-wait
+
+# Check status / fetch a completed download separately
+dwca-tools download status <download-key>
+dwca-tools download fetch <download-key> -o output.zip
+```
 
 ## Development
 
-### Running Tests
-
 ```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=dwca_tools
-
-# Run specific test
-pytest tests/test_cli.py -v
-```
-
-### Code Quality
-
-```bash
-# Lint
-ruff check src tests
-
-# Format
-ruff format src tests
-
-# Type check
-pyright src
+make install-dev    # Install with dev deps
+make ci             # Lint, format-check, typecheck, test with coverage
+make test           # Just tests (pytest)
+make docker-build   # Build Docker image
 ```
 
 ## Origins
 
-This project brings together tools from [mihow/dwca-to-sql](https://github.com/mihow/dwca-to-sql) into a more comprehensive package with plans for iNaturalist data support.
+This project builds on [mihow/dwca-to-sql](https://github.com/mihow/dwca-to-sql).
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-Built with Python 3.12+
+MIT License — see [LICENSE](LICENSE) for details.
