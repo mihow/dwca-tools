@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
@@ -11,11 +12,24 @@ from sqlalchemy.orm import sessionmaker
 
 from .schemas import ColumnDefinition, TableDefinition
 
+_SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
     from sqlalchemy.orm import Session
 
 console = Console()
+
+
+def validate_sql_identifier(name: str) -> str:
+    """Validate that a name is safe to use as a SQL identifier.
+
+    Raises ValueError if the name contains characters outside [A-Za-z0-9_].
+    """
+    if not _SQL_IDENTIFIER_RE.match(name):
+        msg = f"Invalid SQL identifier: {name!r}"
+        raise ValueError(msg)
+    return name
 
 
 def create_engine_and_session(db_url: str) -> tuple[Engine, Session]:
@@ -30,9 +44,11 @@ def create_table(
     metadata: MetaData, table_name: str, columns: list[ColumnDefinition]
 ) -> Table:
     """Create a SQLAlchemy table with the given columns."""
+    validate_sql_identifier(table_name)
     cols: list[Column[Any]] = [Column("id", Integer, primary_key=True, autoincrement=True)]
     for col in columns:
         if col.index is not None:
+            validate_sql_identifier(col.name)
             cols.append(Column(col.name, String))
 
     table = Table(table_name, metadata, *cols, extend_existing=True)

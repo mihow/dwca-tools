@@ -22,6 +22,7 @@ from .db import (
     create_schema_from_meta,
     get_table_column_names,
     summarize_sql_tables,
+    validate_sql_identifier,
 )
 from .schemas import TableDefinition
 from .settings import get_convert_settings
@@ -239,11 +240,13 @@ def _sqlite_insert_table(
 
 def create_indexes(engine: Engine, table_name: str, indexes: list[str]) -> None:
     """Create indexes on specified columns, skipping columns not in schema."""
+    validate_sql_identifier(table_name)
     existing_columns_lower = {c.lower() for c in get_table_column_names(engine, table_name)}
     with engine.connect() as conn:
         for col in indexes:
             if col.lower() not in existing_columns_lower:
                 continue
+            validate_sql_identifier(col)
             conn.execute(
                 text(f'CREATE INDEX IF NOT EXISTS idx_{table_name}_{col} ON {table_name} ("{col}")')
             )
@@ -401,18 +404,18 @@ def convert(
 
     console.print(f"[cyan]Starting conversion of DwC-A file to database:[/cyan] {db_url}")
 
-    zip_ref = zipfile.ZipFile(dwca_path, "r")
-    tables = summarize_tables(zip_ref, "meta.xml")
+    with zipfile.ZipFile(dwca_path, "r") as zip_ref:
+        tables = summarize_tables(zip_ref, "meta.xml")
 
-    engine, session = create_engine_and_session(db_url)
+        engine, session = create_engine_and_session(db_url)
 
-    console.print("[cyan]Creating schema...[/cyan]")
-    create_schema_from_meta(engine, tables)
+        console.print("[cyan]Creating schema...[/cyan]")
+        create_schema_from_meta(engine, tables)
 
-    table_row_counts = estimate_and_display_row_counts(zip_ref, tables, num_threads)
+        table_row_counts = estimate_and_display_row_counts(zip_ref, tables, num_threads)
 
-    console.print("[cyan]Inserting data...[/cyan]")
-    insert_data(engine, session, zip_ref, tables, table_row_counts, chunk_size, num_threads)
+        console.print("[cyan]Inserting data...[/cyan]")
+        insert_data(engine, session, zip_ref, tables, table_row_counts, chunk_size, num_threads)
 
     console.print("[cyan]Summarizing SQL tables...[/cyan]")
     summarize_sql_tables(engine, session)
