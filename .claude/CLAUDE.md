@@ -1,149 +1,90 @@
-# CLAUDE.md - Project Instructions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project
 
-<!-- Brief description of the project. Replace this placeholder. -->
+dwca-tools is a Python CLI for working with Darwin Core Archive (DwC-A) files — a standard zip format used by biodiversity databases like GBIF and iNaturalist. It can inspect archives, convert them to SQL databases, and create aggregation tables.
 
-A Claude-first Python project template. See @README.md for full documentation.
-
-## IMPORTANT: Verify What You Change
-
-**Code is not "done" until you've run it and seen it work.**
-
-Use your judgment. If you changed it, verify it:
-
-- Changed code? → `make ci` (runs lint, format, typecheck, tests)
-- Changed a workflow? → Push and check the workflow output
-- Added a pre-commit hook? → `pre-commit run --all-files`
-- Changed Docker? → `docker compose build`
-- Changed the CLI? → Run the CLI command you changed
-
-Don't just run tests. Tests can pass while the code is broken.
+**CLI entry point**: `dwca-tools` (defined in `pyproject.toml` as `dwca_tools.cli:app`)
 
 ## Commands
 
 ```bash
-make install-dev  # Install with dev deps
-make ci           # Full CI: lint, format-check, typecheck, test with coverage
-make verify       # Full verification: imports, tests, smoke tests, CLI
-make lint         # Just linting
-make test         # Just tests
-make docker-build # Build Docker image
+make install-dev    # Install with dev deps (uv sync --extra dev)
+make ci             # Full CI: lint, format-check, typecheck, test with coverage
+make verify         # Full verification: imports, tests, smoke tests, CLI
+make lint           # Just linting (ruff)
+make test           # Just tests (pytest)
+make docker-build   # Build Docker image
+
+# Run a single test
+uv run pytest tests/test_cli.py::test_name -v
+
+# Run the CLI directly
+uv run dwca-tools summarize archive.zip
+uv run dwca-tools convert archive.zip --db-url sqlite:///data.db
+uv run dwca-tools aggregate populate-taxa-table --db-url sqlite:///data.db
 ```
 
-Run `make help` to see all available commands.
+## Context Management
 
----
+Monitor context usage — keep under 40% (80K/200K tokens) when possible. As context grows, prepare `NEXT_SESSION_PROMPT.md` to summarize progress, compact & commit work, and reference file paths and line numbers. Use offset/limit when reading large files. Prefer command line tools (`jq`, `grep`, `git`) over reading entire files to reduce context. Fix style issues at the end with `make ci`, not incrementally.
 
-## Cost Optimization
+## Always-loaded Rules
 
-**Every API call costs money. Be efficient.**
+These rules apply to all work — see `.claude/rules/` for details:
 
-1. **Monitor context usage** - Keep under 40% (80K/200K tokens) when possible
-   - Check regularly with token counter
-   - Prepare NEXT_SESSION_PROMPT.md as context approaches 40%
-   - Summarize, compact & commit work to reset context (reference filepaths and line numbers)
-   - Use offset/limit when reading large files
+- **Planning and verification** (`planning-and-verification.md`) — think before you act, plan how you'll verify, verify what you change
+- **Git conventions** (`git-conventions.md`) — conventional commits, selective staging
+- **Writing style** (`writing-style.md`) — measured tone, `gh` CLI workarounds
+- **Python style** (`python-style.md`) — modern type annotations (3.10+), imports
 
-2. **Add learnings with references** - Document fixes with file:line references
-   - Example: `src/module/file.py:42`
-   - Update CLAUDE.md or relevant docs with specific locations
+## Architecture
 
-3. **Prefer command line tools** to reduce context
-   - Use `jq` for JSON, `grep` for search, `git` for history
-   - Avoid reading entire files when possible
-   - Never launch interactive CLI tools (use `--no-interactive`, etc.)
-   - Prefer language server plugins over grep for go-to-definition, find-references
+### CLI Structure (`src/dwca_tools/cli.py`)
 
-4. **Fix style issues at the end** - Ignore line length and type errors until done, then use `make ci`
+Typer app composed of three sub-apps:
 
-## Python Type Annotations
-
-Use modern style (Python 3.10+):
-
-```python
-# ✅ CORRECT - use built-in types and | None
-def process(items: list[str], config: dict[str, int] | None = None) -> tuple[str, int]:
-    ...
-
-# ❌ WRONG - old style typing imports
-from typing import Dict, List, Optional
-def process(items: List[str], config: Optional[Dict[str, int]] = None) -> Tuple[str, int]:
-    ...
+```
+dwca-tools
+├── summarize <archive.zip>              → summarize.py  (inspect zip + parse meta.xml)
+├── convert <archive.zip>                → convert.py    (DwC-A → SQL database)
+│   └── sample <db_url>                  →               (show random rows from DB)
+└── aggregate populate-taxa-table <url>  → aggregate.py  (build taxa summary table)
 ```
 
-**Rules:**
-- Use `list`, `dict`, `tuple`, `set` directly (not from `typing`)
-- Use `X | None` instead of `Optional[X]`
-- Use `X | Y` instead of `Union[X, Y]`
-- For typing-only imports (e.g., `Sequence`, `Callable`), use namespace: `typing.Sequence` not `from typing import Sequence`
+### Data Flow
 
-## Think Holistically
+1. **summarize.py** reads the zip without extracting. Parses `meta.xml` (DwC-A standard descriptor) using `xml.etree.ElementTree` to discover tables and columns. Renders Rich tables.
 
-Before diving into code:
-- What is the **PURPOSE** of this tool?
-- Why is it failing on this issue?
-- Is this a symptom of a **larger architectural problem**?
-- Take a step back and analyze the **root cause**
+2. **convert.py** orchestrates the full pipeline: calls `summarize_tables()` → `db.create_schema_from_meta()` (creates SQLAlchemy tables, all columns as `String`) → streams CSV data from zip into DB in batches (default 1000 rows). Uses Rich progress bars.
 
-Don't just fix symptoms. Understand the underlying architecture first.
+3. **aggregate.py** creates a `taxa` table by joining `occurrence` and `multimedia` tables (must already exist from a `convert` run), grouping by `taxonID`.
 
-## Development Best Practices
+### Supporting Modules
 
-- **Commit often** - Small, focused commits are easier to review and rollback
-- **Use Conventional Commits** - `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:` with optional scope: `fix(router): handle empty field`
-- **Stage only related changes** - Never use `git add -A` or `git add .` blindly. Use `git add -p` to selectively stage hunks. For agents: `printf 'y\nn\ny\n' | git add -p file.py`
-- **Use TDD** - Write tests first when possible
-- **Keep it simple** - Evaluate alternatives before complex solutions
-- **Measure twice, cut once** - Plan before implementing
+- **db.py** — SQLAlchemy engine/schema/session utilities. Note: uses deprecated `metadata.bind` pattern with `# type: ignore`.
+- **queries.py** — Pre-built SQLAlchemy query functions (occurrence counts, multimedia counts, top-N rankings, family summaries, random sampling).
+- **utils.py** — Reads optional `defaults.ini` config via `configparser`.
 
-## Using Subagents
+### Key Dependencies
 
-Use subagents to reduce context usage and parallelize work:
+`typer` (CLI), `rich` (terminal UI), `sqlalchemy` (database), `humanize` (formatting), `psycopg2-binary` (PostgreSQL). Note: `pydantic`, `pydantic-settings`, `pyyaml`, and `lxml` are listed as dependencies but currently unused in source.
 
-**Research Subagent (Sonnet)**
-- Search the repo, web research, gathering context
-- Report back with file paths, line numbers, and relevant excerpts
+### Tests
 
-**Implementation Subagent (Haiku)**
-- Execute small, well-defined chunks of work
-- Complete one task, report back for review before continuing
+Tests use `pytest` with `typer.testing.CliRunner`. Currently only CLI smoke tests (help/version). No test archives exist yet — see `docs/TEST_ARCHIVES_PLAN.md`. `asyncio_mode = "auto"` is enabled. Coverage threshold: 20%.
 
-**Pattern:**
-1. Research subagent gathers context and reports findings
-2. Main agent reviews and plans implementation steps
-3. Implementation subagent executes one step at a time
-4. Main agent reviews each step before proceeding
+### CI (`test.yml`)
 
-## Writing Style
-
-When writing PR descriptions, comments, or documentation:
-- Use a measured, factual tone; describe actual changes rather than making broad claims
-- Avoid "comprehensive", "production-ready", "robust", "fully" unless objectively true
-- A sentence is preferred when a list will look cluttered
-
-## Command Line Shortcuts
-
-```bash
-# Quick file inspection with git
-git ls-files | wc -l              # Count files
-git ls-files | grep "*.sql"       # Find files by pattern
-git log --oneline -10             # Recent changes
-
-# JSON inspection with jq
-cat file.json | jq .key           # Parse field
-cat file.json | jq .              # Pretty print
-```
-
----
+Four parallel jobs: `lint` (ruff), `test` (pytest + Codecov), `typecheck` (pyright), then `build` (package + CLI smoke test). Docker build runs on main only.
 
 ## Learnings
 
-*(Add items here as you discover them)*
-
 - Clear settings cache between tests: `get_settings.cache_clear()`
 - Use `tmp_path` fixture for temporary test files
-- Always run `make ci` before committing - catches lint/format/type issues
+- Always run `make ci` before committing — catches lint/format/type issues
 - After pushing workflow changes, check Actions tab for actual results
 
 ### uv gotchas
@@ -153,10 +94,8 @@ cat file.json | jq .              # Pretty print
 
 ### Pyright (type checker)
 
-- Project uses pyright (not mypy). Pyright is the engine behind VS Code's Pylance, so CLI and editor results stay in sync.
-- Pyright handles `try/except ImportError` fallback patterns natively -- no `type: ignore` comments needed.
-- Pyright resolves packages from the venv more reliably than mypy.
-- Config: pyproject.toml `[tool.pyright]` (3 lines vs mypy's 24)
+- Project uses pyright (not mypy). Config: `pyproject.toml [tool.pyright]`.
+- Pyright handles `try/except ImportError` fallback patterns natively — no `type: ignore` needed.
 
 ### Debugging CI failures
 
