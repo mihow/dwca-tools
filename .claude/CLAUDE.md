@@ -44,14 +44,18 @@ These rules apply to all work — see `.claude/rules/` for details:
 
 ### CLI Structure (`src/dwca_tools/cli.py`)
 
-Typer app composed of three sub-apps:
+Typer app composed of four sub-apps:
 
 ```
 dwca-tools
 ├── summarize <archive.zip>              → summarize.py  (inspect zip + parse meta.xml)
 ├── convert <archive.zip>                → convert.py    (DwC-A → SQL database)
 │   └── sample <db_url>                  →               (show random rows from DB)
-└── aggregate populate-taxa-table <url>  → aggregate.py  (build taxa summary table)
+├── aggregate populate-taxa-table <url>  → aggregate.py  (build taxa summary table)
+└── download                             → download.py   (GBIF occurrence downloads)
+    ├── request [TAXA_FILE]              →               (submit + optionally poll & fetch)
+    ├── status <download-key>            →               (check status)
+    └── fetch <download-key>             →               (download completed archive)
 ```
 
 ### Data Flow
@@ -62,15 +66,18 @@ dwca-tools
 
 3. **aggregate.py** creates a `taxa` table by joining `occurrence` and `multimedia` tables (must already exist from a `convert` run), grouping by `taxonID`.
 
+4. **download.py** requests GBIF occurrence downloads via the API. Composable predicate builder: `--match-names` queries by `VERBATIM_SCIENTIFIC_NAME` (bypasses GBIF backbone), `--dataset-key` filters by source dataset, plus `--has-images`, `--country`, `--gadm-gid`, `--predicate` (arbitrary JSON). Polls for completion and streams the archive with a Rich progress bar.
+
 ### Supporting Modules
 
+- **settings.py** — `GbifSettings` via pydantic-settings. Reads `GBIF_USERNAME`, `GBIF_PASSWORD`, `GBIF_EMAIL` from env vars or `.env` file. `resolve_password()` prompts via getpass if env var is missing. Uses `@lru_cache` (clear with `get_gbif_settings.cache_clear()` in tests).
 - **db.py** — SQLAlchemy engine/schema/session utilities. Note: uses deprecated `metadata.bind` pattern with `# type: ignore`.
 - **queries.py** — Pre-built SQLAlchemy query functions (occurrence counts, multimedia counts, top-N rankings, family summaries, random sampling).
 - **utils.py** — Reads optional `defaults.ini` config via `configparser`.
 
 ### Key Dependencies
 
-`typer` (CLI), `rich` (terminal UI), `sqlalchemy` (database), `humanize` (formatting), `psycopg2-binary` (PostgreSQL). Note: `pydantic`, `pydantic-settings`, `pyyaml`, and `lxml` are listed as dependencies but currently unused in source.
+`typer` (CLI), `rich` (terminal UI), `sqlalchemy` (database), `humanize` (formatting), `psycopg2-binary` (PostgreSQL), `requests` (GBIF API), `pydantic-settings` (credential management). Note: `pydantic`, `pyyaml`, and `lxml` are listed as dependencies but currently unused in source.
 
 ### Tests
 
