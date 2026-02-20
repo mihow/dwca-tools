@@ -54,6 +54,12 @@ def create_schema_from_meta(
     return created_tables
 
 
+def get_table_column_names(engine: Engine, table_name: str) -> set[str]:
+    """Return the set of column names for a table."""
+    inspector = sa.inspect(engine)
+    return {col["name"] for col in inspector.get_columns(table_name)}
+
+
 def summarize_sql_tables(engine: Engine, session: Session) -> None:
     """Print summary of database tables."""
     inspector = sa.inspect(engine)
