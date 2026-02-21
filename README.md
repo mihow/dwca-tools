@@ -53,10 +53,14 @@ dwca-tools convert sample --db-url sqlite:///data.db
 
 ### `aggregate` — Build summary tables
 
-Create a `taxa` summary table by joining occurrence and multimedia data (requires a prior `convert` run).
+Create derived tables from an existing database (requires a prior `convert` run).
+
+`populate-taxa-table` joins the `occurrence` and `multimedia` tables, groups by `taxonID`, and produces a `taxa` table with one row per taxon containing: `scientificName`, `family`, `occurrences_count`, and `multimedia_count`. This is the database-backed equivalent of `summarize taxa` — useful when the archive is already imported and you want fast SQL access to per-taxon statistics.
 
 ```bash
-dwca-tools aggregate populate-taxa-table --db-url sqlite:///data.db
+# Typical workflow: import first, then build the summary table
+dwca-tools convert convert archive.zip --db-url sqlite:///data.db
+dwca-tools aggregate populate-taxa-table sqlite:///data.db
 ```
 
 ### `download` — GBIF occurrence downloads
