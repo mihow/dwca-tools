@@ -6,6 +6,8 @@ import csv
 import dataclasses
 import enum
 import io
+import json
+import sys
 import zipfile
 from collections import defaultdict
 from typing import TYPE_CHECKING
@@ -14,6 +16,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from . import summarize as _summarize_mod
 from .schemas import TaxaResult
 from .summarize import summarize_tables
 
@@ -49,6 +52,7 @@ class _TaxaGroup:
     count: int = 0
     taxon_ids: set[str] = dataclasses.field(default_factory=set)
     sci_names: set[str] = dataclasses.field(default_factory=set)
+    taxon_ranks: set[str] = dataclasses.field(default_factory=set)
 
 
 class GroupByColumn(enum.StrEnum):
@@ -58,7 +62,15 @@ class GroupByColumn(enum.StrEnum):
     verbatimScientificName = "verbatimScientificName"
 
 
-def _aggregate_occurrences(
+class OutputFormat(enum.StrEnum):
+    """Output format for taxa summary."""
+
+    table = "table"
+    csv = "csv"
+    json = "json"
+
+
+def _aggregate_occurrences(  # noqa: PLR0912
     zip_ref: ZipFile,
     occ_filename: str,
     group_col: str,
@@ -79,7 +91,7 @@ def _aggregate_occurrences(
         for col in ("taxonID", "scientificName"):
             if col not in needed_cols:
                 needed_cols.append(col)
-    if species_only:
+    if "taxonRank" not in needed_cols:
         needed_cols.append("taxonRank")
 
     groups: dict[str, _TaxaGroup] = defaultdict(_TaxaGroup)
@@ -89,6 +101,9 @@ def _aggregate_occurrences(
         key = row.get(group_col, "")
         entry = groups[key]
         entry.count += 1
+        rank = row.get("taxonRank", "")
+        if rank:
+            entry.taxon_ranks.add(rank)
         if collect_gbif_ids:
             gbif_id = row.get("gbifID", "")
             if gbif_id:
@@ -121,6 +136,7 @@ def _build_taxa_results(
     results: list[TaxaResult] = []
     for name, entry in groups.items():
         img_count = sum(image_counts.get(gid, 0) for gid in entry.gbif_ids)
+        ranks = " | ".join(sorted(entry.taxon_ranks)) if entry.taxon_ranks else ""
         results.append(
             TaxaResult(
                 name=name,
@@ -128,6 +144,7 @@ def _build_taxa_results(
                 image_count=img_count,
                 n_taxon_ids=len(entry.taxon_ids),
                 n_sci_names=len(entry.sci_names),
+                taxon_ranks=ranks,
             )
         )
     results.sort(key=lambda r: (-r.occurrence_count, r.name))
@@ -144,6 +161,7 @@ def _display_taxa_table(
     table = Table(title="Taxa Summary")
     table.add_column("#", justify="right", style="dim")
     table.add_column("Name", style="cyan")
+    table.add_column("Rank", style="blue")
     table.add_column("Occurrences", justify="right", style="green")
     if show_images:
         table.add_column("Images", justify="right", style="yellow")
@@ -154,7 +172,7 @@ def _display_taxa_table(
     total_occ = 0
     total_img = 0
     for i, result in enumerate(results, 1):
-        row_values = [str(i), result.name, str(result.occurrence_count)]
+        row_values = [str(i), result.name, result.taxon_ranks, str(result.occurrence_count)]
         if show_images:
             row_values.append(str(result.image_count))
         if show_mismatched_names:
@@ -163,7 +181,7 @@ def _display_taxa_table(
         total_occ += result.occurrence_count
         total_img += result.image_count
 
-    total_row: list[str] = ["", "[bold]Total[/bold]", f"[bold]{total_occ}[/bold]"]
+    total_row: list[str] = ["", "[bold]Total[/bold]", "", f"[bold]{total_occ}[/bold]"]
     if show_images:
         total_row.append(f"[bold]{total_img}[/bold]")
     if show_mismatched_names:
@@ -177,6 +195,50 @@ def _display_taxa_table(
         console.print(f"[cyan]Unique groups:[/cyan] {shown} shown, {total} total")
     else:
         console.print(f"[cyan]Unique groups:[/cyan] {total}")
+
+
+def _result_to_dict(
+    result: TaxaResult,
+    show_mismatched_names: bool,
+    show_images: bool,
+) -> dict[str, str | int]:
+    """Convert a TaxaResult to a flat dict for serialization."""
+    d: dict[str, str | int] = {
+        "name": result.name,
+        "rank": result.taxon_ranks,
+        "occurrences": result.occurrence_count,
+    }
+    if show_images:
+        d["images"] = result.image_count
+    if show_mismatched_names:
+        d["taxon_ids"] = result.n_taxon_ids
+        d["accepted_names"] = result.n_sci_names
+    return d
+
+
+def _output_csv(
+    results: list[TaxaResult],
+    show_mismatched_names: bool,
+    show_images: bool,
+) -> None:
+    """Write taxa results as CSV to stdout."""
+    if not results:
+        return
+    rows = [_result_to_dict(r, show_mismatched_names, show_images) for r in results]
+    writer = csv.DictWriter(sys.stdout, fieldnames=list(rows[0].keys()))
+    writer.writeheader()
+    writer.writerows(rows)
+
+
+def _output_json(
+    results: list[TaxaResult],
+    show_mismatched_names: bool,
+    show_images: bool,
+) -> None:
+    """Write taxa results as JSON to stdout."""
+    rows = [_result_to_dict(r, show_mismatched_names, show_images) for r in results]
+    json.dump(rows, sys.stdout, indent=2)
+    sys.stdout.write("\n")
 
 
 def taxa(
@@ -208,8 +270,19 @@ def taxa(
         "--image-counts",
         help="Include image counts per group (requires holding all gbifIDs in memory).",
     ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.table,
+        "--format",
+        "-f",
+        help="Output format: table (Rich), csv, or json.",
+    ),
 ) -> None:
     """Summarize taxa from a Darwin Core Archive, showing occurrence and image counts."""
+    # When outputting data formats, redirect Rich status messages to stderr
+    # so stdout stays clean for piping.
+    if output_format != OutputFormat.table:
+        _summarize_mod.console = Console(stderr=True)
+
     with zipfile.ZipFile(dwca_path, "r") as zip_ref:
         tables = summarize_tables(zip_ref)
 
@@ -260,6 +333,12 @@ def taxa(
     total_groups = len(results)
     if limit is not None:
         results = results[:limit]
-    _display_taxa_table(
-        results, show_mismatched_names, show_images=image_counts_flag, total_groups=total_groups
-    )
+
+    if output_format == OutputFormat.csv:
+        _output_csv(results, show_mismatched_names, show_images=image_counts_flag)
+    elif output_format == OutputFormat.json:
+        _output_json(results, show_mismatched_names, show_images=image_counts_flag)
+    else:
+        _display_taxa_table(
+            results, show_mismatched_names, show_images=image_counts_flag, total_groups=total_groups
+        )

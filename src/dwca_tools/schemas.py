@@ -35,3 +35,4 @@ class TaxaResult:
     image_count: int
     n_taxon_ids: int
     n_sci_names: int
+    taxon_ranks: str
